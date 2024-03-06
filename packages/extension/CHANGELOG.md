@@ -3,6 +3,40 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.22](https://github.com/didi/LogicFlow/compare/@logicflow/extension@1.2.20...@logicflow/extension@1.2.22) (2024-02-05)
+
+
+### Features
+
+* update @logicflow/core @logicflow/extension version to 1.2.21 ([55b865b](https://github.com/didi/LogicFlow/commit/55b865b381354a75b04d339fec2f10b34cd12738))
+
+
+
+
+
+## [1.2.20](https://github.com/didi/LogicFlow/compare/@logicflow/extension@1.2.19...@logicflow/extension@1.2.20) (2024-02-05)
+
+
+### Bug Fixes
+
+* **extension:** 修复task判定附加边界事件时的坐标判定问题 ([5ffdffd](https://github.com/didi/LogicFlow/commit/5ffdffd37e70c076bae9a52f0fc685375e64022e))
+
+
+
+
+
+## [1.2.19](https://github.com/didi/LogicFlow/compare/@logicflow/extension@1.2.18...@logicflow/extension@1.2.19) (2023-11-22)
+
+
+### Bug Fixes
+
+* **extension:** 修复「小地图鼠标放上去会出现浮层展示」bug([#1419](https://github.com/didi/LogicFlow/issues/1419)) ([0a47b2d](https://github.com/didi/LogicFlow/commit/0a47b2d0ac833e4fe9b207a43ba02d22df72d07d))
+* prevent node without anchors using InsertNodeInPolyline([#1077](https://github.com/didi/LogicFlow/issues/1077)) ([6e10d3a](https://github.com/didi/LogicFlow/commit/6e10d3ad6e5b26daa6cad865bbca0eb326dfd54b))
+
+
+
+
+
 ## [1.2.18](https://github.com/didi/LogicFlow/compare/@logicflow/extension@1.2.17...@logicflow/extension@1.2.18) (2023-10-25)
 
 
