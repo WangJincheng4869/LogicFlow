@@ -57,6 +57,8 @@ export enum EventType {
   NODE_CONTEXTMENU = 'node:contextmenu',
   NODE_ROTATE = 'node:rotate',
   NODE_RESIZE = 'node:resize',
+  NODE_FOCUS = 'node:focus',
+  NODE_BLUR = 'node:blur',
 
   // 节点 properties 变化事件
   NODE_PROPERTIES_CHANGE = 'node:properties-change',
@@ -67,6 +69,8 @@ export enum EventType {
   EDGE_DELETE = 'edge:delete',
   EDGE_CLICK = 'edge:click',
   EDGE_DBCLICK = 'edge:dbclick',
+  EDGE_FOCUS = 'edge:focus',
+  EDGE_BLUR = 'edge:blur',
 
   EDGE_MOUSEENTER = 'edge:mouseenter',
   EDGE_MOUSELEAVE = 'edge:mouseleave',
@@ -75,6 +79,8 @@ export enum EventType {
   EDGE_EXCHANGE_NODE = 'edge:exchange-node',
 
   // Anchor events
+  ANCHOR_CLICK = 'anchor:click',
+  ANCHOR_MOUSEDOWN = 'anchor:mousedown',
   ANCHOR_DRAGSTART = 'anchor:dragstart',
   ANCHOR_DRAG = 'anchor:drag',
   ANCHOR_DROP = 'anchor:drop',

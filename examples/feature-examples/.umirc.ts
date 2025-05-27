@@ -15,6 +15,28 @@ export default defineConfig({
       name: 'native nodes',
     },
     {
+      name: 'grid',
+      path: '/grid',
+      routes: [
+        {
+          path: '/grid/adjust',
+          name: '动态调整网格配置',
+          component: './grid',
+        },
+      ],
+    },
+    {
+      name: 'background',
+      path: '/background',
+      routes: [
+        {
+          path: '/background/adjust',
+          name: '动态调整画布背景',
+          component: './background',
+        },
+      ],
+    },
+    {
       path: '/custom-nodes',
       name: 'custom nodes',
       routes: [
@@ -66,6 +88,11 @@ export default defineConfig({
           path: '/custom-edges/polyline',
           name: '折线',
           component: './edges/custom/polyline',
+        },
+        {
+          path: '/custom-edges/animate-polyline',
+          name: '动画折线',
+          component: './edges/custom/animate-polyline',
         },
         {
           path: '/custom-edges/curved-polyline',
@@ -171,6 +198,11 @@ export default defineConfig({
           path: '/extension/rect-label-node',
           name: 'RectLabelNode 插件',
           component: './extensions/rect-label-node',
+        },
+        {
+          path: '/extension/proximity-connect',
+          name: 'Proximity Connect 插件',
+          component: './extensions/proximity-connect',
         },
       ],
     },

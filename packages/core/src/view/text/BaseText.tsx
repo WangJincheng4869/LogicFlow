@@ -80,6 +80,7 @@ export class BaseText<
     } = graphModel
 
     if (draggable ?? nodeTextDraggable) {
+      e.stopPropagation()
       this.stepperDrag.model = model
       this.stepperDrag.handleMouseDown(e)
     }
@@ -91,7 +92,7 @@ export class BaseText<
       graphModel: { transformModel },
     } = this.props
 
-    if (deltaX && deltaY) {
+    if (deltaX || deltaY) {
       const [curDeltaX, curDeltaY] = transformModel.fixDeltaXY(deltaX, deltaY)
       model.moveText(curDeltaX, curDeltaY)
     }

@@ -148,6 +148,8 @@ export class StepDrag {
       }
       this.isDragging = true
       // 为了让dragstart和drag不在同一个事件循环中，使drag事件放到下一个消息队列中。
+      // TODO: 放到下一个消息队列中是否会有延迟，比如
+      // 限制某个元素的拖拽范围，如果在dragstart中设置了拖拽范围，那么在drag中就会有延迟。
       Promise.resolve().then(() => {
         this.onDragging({
           deltaX,
@@ -198,5 +200,17 @@ export class StepDrag {
     DOC.removeEventListener('mouseup', this.handleMouseUp, false)
     this.onDragEnd({ event: undefined })
     this.isDragging = false
+  }
+
+  destroy = () => {
+    if (this.isStartDragging) {
+      // https://github.com/didi/LogicFlow/issues/1934
+      // https://github.com/didi/LogicFlow/issues/1926
+      // cancelDrag()->onDragEnd()->updateEdgePointByAnchors()触发线的重新计算
+      // 我们的本意是为了防止mousemove和mouseup没有及时被移除
+      // 因此这里增加if(this.isStartDragging)的判断，isStartDragging=true代表没有触发handleMouseUp()，此时监听还没被移除
+      // 在拖拽情况下(isStartDragging=true)，此时注册了监听，在组件突然销毁时，强制触发cancelDrag进行监听事件的移除
+      this.cancelDrag()
+    }
   }
 }

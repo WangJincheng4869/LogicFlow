@@ -4,7 +4,65 @@
  * Auto generated file, do not modify it!
  */
 
-export const content = `.lf-control {
+export const content = `@import url('medium-editor/dist/css/medium-editor.min.css');
+@import url('medium-editor/dist/css/themes/beagle.min.css');
+@import url('vanilla-picker/dist/vanilla-picker.csp.css');
+/* label */
+.lf-label-overlay {
+  width: 0;
+  height: 0;
+  overflow: visible;
+}
+.lf-label-overlay .lf-label-editor {
+  padding: 4px;
+  background: #fff;
+  border-radius: 5px;
+}
+.lf-label-overlay .lf-label-editor-container {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  text-align: center;
+}
+.lf-label-overlay .lf-label-editor-container p {
+  margin: 0;
+}
+.lf-label-overlay .lf-label-editor-dragging {
+  cursor: move;
+}
+.lf-label-overlay .lf-label-editor-editing {
+  outline: 2px solid #275dc5;
+  cursor: text;
+}
+.lf-label-overlay .lf-label-editor-hover {
+  outline: 2px dashed #acacac;
+}
+.lf-label-overlay .lf-label-editor-clip {
+  width: 100px;
+  /* 根据需要调整宽度 */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+.lf-label-overlay .lf-label-editor-ellipsis {
+  width: 100px;
+  /* 根据需要调整宽度 */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lf-label-overlay .lf-label-editor-wrap {
+  white-space: normal;
+  overflow-wrap: break-word;
+  /* 允许单词内换行 */
+}
+.lf-label-overlay .lf-label-editor-nowrap {
+  overflow: visible;
+  white-space: nowrap;
+}
+.lf-control {
   position: absolute;
   top: 0;
   right: 10px;
@@ -96,6 +154,7 @@ export const content = `.lf-control {
 /* dndpanel */
 .lf-dndpanel {
   position: absolute;
+  z-index: 999;
   margin: 5px;
   padding: 15px 5px;
   background: rgba(255, 255, 255, 0.8);
@@ -133,6 +192,10 @@ export const content = `.lf-control {
   overflow: hidden;
   background: #eaedf2;
   border: 1px solid #93a3b4;
+}
+.lf-mini-map .lf-graph {
+  width: 100% !important;
+  height: 100% !important;
 }
 .lf-mini-map-graph {
   position: relative;
@@ -219,5 +282,4 @@ export const content = `.lf-control {
 .lf-mindmap_addIcon {
   margin-top: 10px;
 }
-/* label */
 `

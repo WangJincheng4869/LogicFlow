@@ -3,7 +3,6 @@ import {
   Control,
   DndPanel,
   ShapeItem,
-  // Group,
   DynamicGroup,
   SelectionSelect,
 } from '@logicflow/extension'
@@ -14,17 +13,22 @@ import { useEffect, useRef } from 'react'
 import GraphConfigData = LogicFlow.GraphConfigData
 
 import '@logicflow/core/es/index.css'
-import '@logicflow/extension/es/index.css'
+// import '@logicflow/extension/es/index.css'
 import './index.less'
 import { getImageUrl } from '@/utls.ts'
 
 const config: Partial<LogicFlow.Options> = {
-  grid: true,
+  // grid: true,
   multipleSelectKey: 'alt',
   autoExpand: false,
   allowResize: true,
   allowRotate: true,
   nodeTextDraggable: false,
+  stopMoveGraph: true,
+  grid: {
+    size: 10,
+  },
+  snapGrid: false,
   keyboard: {
     enabled: true,
   },
@@ -66,7 +70,7 @@ const customDndConfig: ShapeItem[] = [
 
 const getDndPanelConfig = (lf: LogicFlow): ShapeItem[] => [
   {
-    label: '选区',
+    label: '单次框选',
     icon: getImageUrl('/bpmn/select.png'),
     callback: () => {
       lf.openSelectionSelect()
@@ -75,10 +79,24 @@ const getDndPanelConfig = (lf: LogicFlow): ShapeItem[] => [
       })
     },
   },
+  {
+    label: '开启框选',
+    icon: getImageUrl('/bpmn/select.png'),
+    callback: () => {
+      lf.openSelectionSelect()
+    },
+  },
+  {
+    label: '关闭框选',
+    icon: getImageUrl('/bpmn/select.png'),
+    callback: () => {
+      lf.closeSelectionSelect()
+    },
+  },
   ...customDndConfig,
 ]
 
-export default function BPMNExtension() {
+export default function DynamicGroupDemo() {
   const lfRef = useRef<LogicFlow>()
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -87,6 +105,35 @@ export default function BPMNExtension() {
       const lf = new LogicFlow({
         ...config,
         container: containerRef.current as HTMLElement,
+      })
+      ;(lf.extension.control as Control).addItem({
+        key: 'move-group',
+        iconClass: 'custom-minimap',
+        title: '',
+        text: '右移分组',
+        onClick: (lf) => {
+          const { nodes } = lf.getSelectElements()
+          const selectedNode = nodes[0]
+          if (!selectedNode) {
+            return
+          }
+          const isGroup = lf.getModelById(selectedNode.id)?.isGroup
+          if (!isGroup) {
+            return
+          }
+          lf.graphModel.moveNode(selectedNode.id, 10, 0)
+        },
+      })
+      ;(lf.extension.control as Control).addItem({
+        key: 'move-group',
+        iconClass: 'custom-minimap',
+        title: '',
+        text: 'addChild',
+        onClick: (lf) => {
+          const groupModel = lf.getNodeModelById('#2041_dynamic-group_1')
+          groupModel?.addChild('#2041_circle_1')
+          groupModel?.addChild('#2041_circle_2')
+        },
       })
 
       const dndPanelConfig = getDndPanelConfig(lf)
@@ -112,36 +159,135 @@ export default function BPMNExtension() {
             },
           },
           {
+            id: 'circle_3',
+            type: 'circle',
+            x: 544,
+            y: 94,
+            properties: {},
+            text: {
+              x: 544,
+              y: 94,
+              value: 'Circle',
+            },
+          },
+          {
             id: 'dynamic-group_1',
             type: 'dynamic-group',
             x: 500,
             y: 140,
-            // children: ["rect_3"],
             text: 'dynamic-group_1',
             resizable: true,
             properties: {
-              // resizable: true,
               collapsible: true,
               width: 420,
               height: 250,
               radius: 5,
               isCollapsed: true,
+              children: ['circle_3', 'circle_2'],
             },
+          },
+          {
+            id: 'rect_1',
+            type: 'rect',
+            x: 455,
+            y: 243,
+            properties: {
+              width: 40,
+              height: 40,
+            },
+            // text: {
+            //   x: 455,
+            //   y: 213,
+            //   value: 'Rect',
+            // },
           },
           {
             id: 'dynamic-group_2',
             type: 'dynamic-group',
-            x: 500,
-            y: 220,
-            // children: ["rect_3"],
+            x: 544,
+            y: 376,
             text: 'dynamic-group_2',
+            resizable: true,
+            properties: {
+              transformWithContainer: false,
+              width: 520,
+              height: 350,
+              radius: 5,
+              collapsible: false,
+              isCollapsed: false,
+              isRestrict: false,
+              children: ['rect_1', 'dynamic-group-inner-2'],
+            },
+          },
+          {
+            id: 'dynamic-group-inner-2',
+            type: 'dynamic-group',
+            x: 544,
+            y: 376,
+            text: 'dynamic-group-inner-2',
+            resizable: true,
+            properties: {
+              transformWithContainer: false,
+              width: 320,
+              height: 150,
+              radius: 5,
+              collapsible: false,
+              isCollapsed: false,
+              isRestrict: false,
+              children: ['inner-rect'],
+            },
+          },
+          {
+            id: 'inner-rect',
+            type: 'rect',
+            x: 452,
+            y: 357,
+            properties: {
+              width: 100,
+              height: 80,
+            },
+            text: {
+              x: 452,
+              y: 357,
+              value: 'Rect',
+            },
+          },
+          // #2041
+          {
+            id: '#2041_circle_1',
+            type: 'circle',
+            x: 1022,
+            y: 170,
+            text: {
+              value: 'circle_1',
+              x: 1022,
+              y: 170,
+              draggable: true,
+            },
+          },
+          {
+            id: '#2041_circle_2',
+            type: 'circle',
+            x: 1180,
+            y: 170,
+            text: {
+              value: 'circle_2',
+              x: 1180,
+              y: 170,
+              draggable: true,
+            },
+          },
+          {
+            id: '#2041_dynamic-group_1',
+            type: 'dynamic-group',
+            x: 1042,
+            y: 189,
+            text: 'dynamic-group_fix_#2041',
             resizable: true,
             properties: {
               width: 420,
               height: 250,
               radius: 5,
-              collapsible: false,
-              isCollapsed: false,
             },
           },
         ],
@@ -233,6 +379,7 @@ export default function BPMNExtension() {
         // 'edges': [],
       }
       lf.render(graphData)
+      // lf.setSelectionSelectMode(true)
 
       lfRef.current = lf
     }

@@ -1,5 +1,3 @@
-import './index.less'
-
 // BPMN 相关
 export * from './bpmn'
 export * from './bpmn-adapter'
@@ -21,6 +19,7 @@ export * from './tools/label'
 export * from './tools/snapshot'
 export * from './tools/flow-path'
 export * from './tools/auto-layout'
+export * from './tools/proximity-connect'
 
 // Component -> 流程图中交互组件
 export * from './components/control'

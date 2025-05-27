@@ -132,7 +132,7 @@ interface NodeEventArgs {
   /**
    * 删除节点
    */
-  'node:delete': NodeEventArgsPick<'data'>
+  'node:delete': NodeEventArgsPick<'data' | 'model'>
   /**
    * 添加外部拖入节点
    */
@@ -140,7 +140,7 @@ interface NodeEventArgs {
   /**
    * 拖拽外部拖入节点
    */
-  'node:dnd-drag': NodeEventArgsPick<'data'>
+  'node:dnd-drag': NodeEventArgsPick<'data' | 'e'>
   /**
    * 开始拖拽节点
    */
@@ -167,6 +167,35 @@ interface NodeEventArgs {
   'node:resize': NodeEventArgsPick<
     'preData' | 'data' | 'model' | 'deltaX' | 'deltaY' | 'index'
   >
+  /**
+   * 元素的 properties 发生改变
+   */
+  'node:properties-change': {
+    /**
+     * 元素的 id
+     */
+    id: string
+    /**
+     * 改变的 properties 的 key
+     */
+    keys: string[]
+    /**
+     * 改变前的 properties
+     */
+    preProperties: Record<string, any>
+    /**
+     * 改变后的 properties
+     */
+    properties: Record<string, any>
+  }
+  /**
+   * 节点获焦
+   */
+  'node:focus': NodeEventArgsPick<'data'>
+  /**
+   * 节点失焦
+   */
+  'node:blur': NodeEventArgsPick<'data'>
 }
 
 type EdgeEventArgsPick<T extends 'data' | 'e' | 'position'> = Pick<
@@ -238,6 +267,14 @@ interface EdgeEventArgs {
       oldEdge: EdgeData
     }
   }
+  /**
+   * 边获焦
+   */
+  'edge:focus': EdgeEventArgsPick<'data'>
+  /**
+   * 边失焦
+   */
+  'edge:blur': EdgeEventArgsPick<'data'>
 }
 
 /**
@@ -357,33 +394,6 @@ interface CommonEventArgs {
     position: ClientPosition
   }
   /**
-   * 元素的 properties 发生改变
-   */
-  'properties:change': {
-    data: {
-      /**
-       * 元素的 id
-       */
-      id: string
-      /**
-       * 元素的类型
-       */
-      type: string
-      /**
-       * 改变的 properties 的 key
-       */
-      keys: string[]
-      /**
-       * 改变前的 properties
-       */
-      preProperties: Record<string, any>
-      /**
-       * 改变后的 properties
-       */
-      properties: Record<string, any>
-    }
-  }
-  /**
    * 进行画布平移或缩放等变化操作时触发
    */
   'graph:transform': {
@@ -420,6 +430,16 @@ interface CommonEventArgs {
      */
     data: GraphData
   }
+  /**
+   * 画布容器大小发生变化触发，为了性能考虑对事件做了防抖处理，间隔为16ms
+   */
+  'graph:resize': {
+    /**
+     * 更新后的画布数据
+     */
+    target: HTMLElement
+    contentRect: DOMRectReadOnly
+  }
 }
 
 type AnchorEventArgsPick<T extends 'data' | 'e' | 'nodeModel' | 'edgeModel'> =
@@ -440,7 +460,7 @@ type AnchorEventArgsPick<T extends 'data' | 'e' | 'nodeModel' | 'edgeModel'> =
       /**
        * 通过拖动锚点连线添加的边的数据
        */
-      edgeModel: BaseEdgeModel
+      edgeModel?: BaseEdgeModel
     },
     T
   >
@@ -449,6 +469,14 @@ type AnchorEventArgsPick<T extends 'data' | 'e' | 'nodeModel' | 'edgeModel'> =
  * 锚点事件
  */
 interface AnchorEventArgs {
+  /**
+   * anchor 锚点 click
+   */
+  'anchor:click': AnchorEventArgsPick<'data' | 'e' | 'nodeModel'>
+  /**
+   * anchor 锚点 mousedown
+   */
+  'anchor:mousedown': AnchorEventArgsPick<'data' | 'e' | 'nodeModel'>
   /**
    * 开始拖拽锚点
    */

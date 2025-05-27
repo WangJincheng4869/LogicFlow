@@ -29,6 +29,7 @@ export abstract class BaseEdge<P extends IProps> extends Component<
 > {
   static isObserved: boolean = false
   static extendsKey?: string
+  mouseUpDrag?: boolean
 
   startTime?: number
   contextMenuTime?: number
@@ -357,6 +358,7 @@ export abstract class BaseEdge<P extends IProps> extends Component<
       clearTimeout(this.clickTimer)
     }
     const { model, graphModel } = this.props
+    const { editConfigModel } = graphModel
     const position = graphModel.getPointByClient({
       x: ev.clientX,
       y: ev.clientY,
@@ -366,7 +368,10 @@ export abstract class BaseEdge<P extends IProps> extends Component<
       ElementState.SHOW_MENU,
       position.domOverlayPosition,
     )
-    this.toFront()
+    // 静默模式下点击节点不变更节点层级
+    if (!editConfigModel.isSilentMode) {
+      this.toFront()
+    }
     if (!model.isSelected) {
       graphModel.selectEdgeById(model.id)
     }
@@ -385,13 +390,16 @@ export abstract class BaseEdge<P extends IProps> extends Component<
     e.stopPropagation()
     this.startTime = new Date().getTime()
   }
+  handleMouseUp = () => {
+    const { model } = this.props
+    this.mouseUpDrag = model.isDragging
+  }
   /**
    * 不支持重写
    */
-  handleMouseUp = (e: MouseEvent) => {
+  handleClick = (e: MouseEvent) => {
     if (!this.startTime) return
-    const time = new Date().getTime() - this.startTime
-    if (time > 200) return // 事件大于200ms，认为是拖拽。
+    if (this.mouseUpDrag) return // 如果是拖拽，不触发click事件。
     const isRightClick = e.button === 2
     if (isRightClick) return
     // 这里 IE 11不能正确显示
@@ -452,7 +460,24 @@ export abstract class BaseEdge<P extends IProps> extends Component<
     }
     const { editConfigModel } = graphModel
     graphModel.selectEdgeById(model.id, isMultipleSelect(e, editConfigModel))
-    this.toFront()
+    // 静默模式下点击节点不变更节点层级
+    if (!editConfigModel.isSilentMode) {
+      this.toFront()
+    }
+  }
+
+  handleFocus = () => {
+    const { model, graphModel } = this.props
+    graphModel.eventCenter.emit(EventType.EDGE_FOCUS, {
+      data: model.getData(),
+    })
+  }
+
+  handleBlur = () => {
+    const { model, graphModel } = this.props
+    graphModel.eventCenter.emit(EventType.EDGE_BLUR, {
+      data: model.getData(),
+    })
   }
 
   /**
@@ -490,10 +515,13 @@ export abstract class BaseEdge<P extends IProps> extends Component<
             .join(' ')}
           onMouseDown={this.handleMouseDown}
           onMouseUp={this.handleMouseUp}
+          onClick={this.handleClick}
           onContextMenu={this.handleContextMenu}
           onMouseOver={this.setHoverOn}
           onMouseEnter={this.setHoverOn}
           onMouseLeave={this.setHoverOff}
+          onFocus={this.handleFocus}
+          onBlur={this.handleBlur}
         >
           {this.getShape()}
           {this.getAppend()}

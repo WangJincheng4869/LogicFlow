@@ -50,10 +50,15 @@ export class ResizeControl extends Component<
 
     // 初始化拖拽工具
     this.dragHandler = new StepDrag({
+      onDragStart: this.onDragStart,
       onDragging: this.onDragging,
       onDragEnd: this.onDragEnd,
       step: graphModel.gridSize,
     })
+  }
+
+  componentWillUnmount() {
+    this.dragHandler.destroy()
   }
 
   updateEdgePointByAnchors = () => {
@@ -241,10 +246,12 @@ export class ResizeControl extends Component<
 
   resizeNode = ({ deltaX, deltaY }: VectorData) => {
     const { index } = this
-    const { model, graphModel } = this.props
+    const { model, graphModel, x, y } = this.props
 
     // DONE: 调用每个节点中更新缩放时的方法 updateNode 函数，用来各节点缩放的方法
     handleResize({
+      x,
+      y,
       deltaX,
       deltaY,
       index,
@@ -309,6 +316,10 @@ export class ResizeControl extends Component<
     // this.updateEdgePointByAnchors()
     // // 触发 resize 事件
     // this.triggerResizeEvent(preNodeData, curNodeData, deltaX, deltaY, this.index, this.nodeModel)
+  }
+
+  onDragStart = () => {
+    this.graphModel.selectNodeById(this.nodeModel.id)
   }
 
   onDragging = ({ deltaX, deltaY }: IDragParams) => {

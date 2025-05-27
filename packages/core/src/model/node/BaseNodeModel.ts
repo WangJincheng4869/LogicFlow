@@ -1,5 +1,13 @@
 import { action, computed, isObservable, observable, toJS } from 'mobx'
-import { assign, cloneDeep, has, isNil, mapKeys, isUndefined } from 'lodash-es'
+import {
+  assign,
+  cloneDeep,
+  has,
+  isNil,
+  mapKeys,
+  isUndefined,
+  set,
+} from 'lodash-es'
 import { GraphModel, Model } from '..'
 import LogicFlow from '../../LogicFlow'
 import {
@@ -140,6 +148,7 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
   targetRules: Model.ConnectRule[] = []
   sourceRules: Model.ConnectRule[] = []
   moveRules: Model.NodeMoveRule[] = [] // 节点移动之前的hook
+  resizeRules: Model.NodeResizeRule[] = [] // 节点resize之前的hook
   hasSetTargetRules = false // 用来限制rules的重复值
   hasSetSourceRules = false; // 用来限制rules的重复值
   [propName: string]: any // 支持用户自定义属性
@@ -237,13 +246,16 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
    * 始化文本属性
    */
   private formatText(data: NodeConfig): void {
+    const {
+      editConfigModel: { nodeTextDraggable, nodeTextEdit },
+    } = this.graphModel
     const { x, y, text } = data
     let textConfig: TextConfig = {
       value: '',
       x,
       y,
-      draggable: false,
-      editable: true,
+      draggable: nodeTextDraggable,
+      editable: nodeTextEdit,
     }
     if (text) {
       if (typeof text === 'string') {
@@ -259,7 +271,7 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
           textConfig.draggable = text.draggable
         }
         if (!isUndefined(text.editable)) {
-          textConfig.draggable = text.draggable
+          textConfig.editable = text.editable
         }
       }
     }
@@ -273,6 +285,13 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
    */
   resize(resizeInfo: ResizeInfo): ResizeNodeData {
     const { width, height, deltaX, deltaY } = resizeInfo
+
+    const isAllowResize = this.isAllowResizeNode(deltaX, deltaY, width, height)
+
+    if (!isAllowResize) {
+      return this.getData()
+    }
+
     // 移动节点以及文本内容
     this.move(deltaX / 2, deltaY / 2)
 
@@ -297,6 +316,18 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
     let { properties } = this
     if (isObservable(properties)) {
       properties = toJS(properties)
+    }
+    if (isNil(properties.width)) {
+      // resize()的时候会触发this.setProperties({width,height})
+      // 然后返回getData()，可以从properties拿到width
+      // 但是初始化如果没有在properties传入width，那么getData()就一直无法从properties拿到width
+      properties.width = this.width
+    }
+    if (isNil(properties.height)) {
+      // resize()的时候会触发this.setProperties({width,height})
+      // 然后返回getData()，可以从properties拿到height
+      // 但是初始化如果没有在properties传入height，那么getData()就一直无法从properties拿到width
+      properties.height = this.height
     }
     const data: NodeData = {
       id: this.id,
@@ -679,6 +710,10 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
       this.y = this.y + deltaY
       this.text && this.moveText(0, deltaY)
     }
+    if (isAllowMoveX || isAllowMoveY) {
+      // 更新x和y的同时也要更新对应的transform旋转矩阵（依赖x、y)
+      this.rotate = this._rotate
+    }
     return isAllowMoveX || isAllowMoveY
   }
 
@@ -705,6 +740,10 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
       this.text && this.moveText(0, deltaY)
       moveY = deltaY
     }
+    this.transform = new TranslateMatrix(-this.x, -this.y)
+      .rotate(this.rotate)
+      .translate(this.x, this.y)
+      .toString()
     return [moveX, moveY]
   }
 
@@ -735,6 +774,30 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
       ...toJS(this.text),
       value,
     }
+  }
+
+  @action addNodeResizeRules(fn: Model.NodeResizeRule) {
+    if (!this.resizeRules.includes(fn)) {
+      this.resizeRules.push(fn)
+    }
+  }
+
+  /**
+   * 内部方法
+   * 是否允许resize节点到新的位置
+   */
+  isAllowResizeNode(
+    deltaX: number,
+    deltaY: number,
+    width: number,
+    height: number,
+  ): boolean {
+    const rules = this.resizeRules.concat(this.graphModel.nodeResizeRules)
+    for (const rule of rules) {
+      const r = rule(this, deltaX, deltaY, width, height)
+      if (!r) return false
+    }
+    return true
   }
 
   @action setSelected(flag = true): void {
@@ -779,7 +842,7 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
     this.properties = nextProperties
     this.setAttributes()
 
-    // 触发更新节点 properties:change 的事件
+    // 触发更新节点 node:properties-change 的事件
     this.graphModel.eventCenter.emit(EventType.NODE_PROPERTIES_CHANGE, {
       id: this.id,
       keys: updateKeys,
@@ -790,10 +853,11 @@ export class BaseNodeModel<P extends PropertiesType = PropertiesType>
 
   @action setProperty(key: string, val: any): void {
     const preProperties = toJS(this.properties)
-    const nextProperties = {
-      ...preProperties,
-      [key]: formatData(val),
-    }
+    const nextProperties = cloneDeep(preProperties)
+    // https://lodash.com/docs/4.17.15#set
+    // 使用 lodash 的 set 方法更新某个属性，可以支持 key 为 'a.b.c' 的情况
+    set(nextProperties, key, formatData(val))
+
     this.updateProperties(nextProperties, [key])
   }
 

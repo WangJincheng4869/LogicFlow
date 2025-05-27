@@ -1,4 +1,4 @@
-import { assign, cloneDeep } from 'lodash-es'
+import { get, assign, cloneDeep } from 'lodash-es'
 import { action, observable } from 'mobx'
 import BaseEdgeModel from './BaseEdgeModel'
 import { BaseNodeModel } from '../node'
@@ -13,7 +13,7 @@ import EdgeConfig = LogicFlow.EdgeConfig
 export class BezierEdgeModel extends BaseEdgeModel {
   modelType = ModelType.BEZIER_EDGE
 
-  offset!: number
+  @observable offset!: number
   @observable path = ''
   constructor(data: EdgeConfig, graphModel: GraphModel) {
     super(data, graphModel)
@@ -21,7 +21,7 @@ export class BezierEdgeModel extends BaseEdgeModel {
     this.setAttributes()
   }
   initEdgeData(data: EdgeConfig): void {
-    this.offset = 100
+    this.offset = get(data, 'properties.offset', 100)
     super.initEdgeData(data)
   }
   getEdgeStyle() {

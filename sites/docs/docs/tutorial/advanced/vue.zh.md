@@ -15,7 +15,7 @@ tag: 新特性
   :::
 
 ## 渲染 Vue 组件为节点内容
-同 React 一样我们提供了一个独立的包 `@logiclfow/vue-node-registry` 来使用 Vue 组件渲染节点。
+同 React 一样我们提供了一个独立的包 `@logicflow/vue-node-registry` 来使用 Vue 组件渲染节点。
 
 ### Vue3
 在 Vue3 中使用示例如下：
@@ -23,7 +23,7 @@ tag: 新特性
 ```html
 <template>
   <div ref="containerRef" id="graph" class="viewport"></div>
-  <TeleportContainer />
+  <TeleportContainer :flow-id="flowId"/>
 </template>
 
 <script setup lang="ts">
@@ -38,6 +38,7 @@ tag: 新特性
   const lfRef = ref<LogicFlow | null>(null)
   const containerRef = ref<HTMLDivElement | null>(null)
   const TeleportContainer = getTeleport()
+  const flowId = ref('')
 
   onMounted(() => {
     if (containerRef.value) {
@@ -51,6 +52,10 @@ tag: 新特性
         type: 'custom-vue-node',
         component: ProgressNode
       }, lf)
+
+      lf.on('graph:rendered', ({ graphModel }) => {
+        flowId.value = graphModel.flowId!
+      })
 
       // 注册事件
       lf.render({})

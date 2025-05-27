@@ -1,7 +1,7 @@
 import { isVue2, isVue3, createApp, h, Vue2 } from 'vue-demi'
 import { HtmlNode } from '@logicflow/core'
 import { vueNodesMap } from './registry'
-import { isActive, connect } from './teleport'
+import { isActive, connect, disconnect } from './teleport'
 
 export class VueNodeView extends HtmlNode {
   root?: any
@@ -29,9 +29,10 @@ export class VueNodeView extends HtmlNode {
     this.renderVueComponent()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   confirmUpdate(_rootEl: SVGForeignObjectElement) {
     // TODO: 如有需要，可以先通过继承的方式，自定义该节点的更新逻辑；我们后续会根据实际需求，丰富该功能
-    console.log('_rootEl', _rootEl)
+    // console.log('_rootEl', _rootEl)
   }
 
   protected renderVueComponent() {
@@ -88,7 +89,7 @@ export class VueNodeView extends HtmlNode {
     const root = this.getComponentContainer()
     if (this.vm) {
       isVue2 && this.vm.$destroy()
-      isVue3 && this.vm.$destroy()
+      isVue3 && this.vm.unmount()
       this.vm = null
     }
     if (root) {
@@ -98,6 +99,9 @@ export class VueNodeView extends HtmlNode {
   }
 
   unmount() {
+    if (isActive()) {
+      disconnect(this.targetId())
+    }
     this.unmountVueComponent()
   }
 }

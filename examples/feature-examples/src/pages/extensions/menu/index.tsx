@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
 import styles from './index.less'
 
 import '@logicflow/core/es/index.css'
-import '@logicflow/extension/es/index.css'
+// import '@logicflow/extension/es/index.css'
 
 import EdgeData = LogicFlow.EdgeData
 import NodeData = LogicFlow.NodeData
@@ -169,6 +169,16 @@ export default function MenuExtension() {
             text: '分享',
             callback() {
               alert('分享成功！')
+            },
+          },
+          {
+            text: '添加节点',
+            callback(data: LogicFlow.Position) {
+              lf.addNode({
+                type: 'rect',
+                x: data.x,
+                y: data.y,
+              })
             },
           },
         ],

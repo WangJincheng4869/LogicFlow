@@ -7,6 +7,12 @@ import { useEffect, useRef } from 'react'
 import { combine, square, star, uml, user } from './nodes'
 import { animation, connection } from './edges'
 
+import customCircle from '@/components/nodes/custom-circle'
+import customRect from '@/components/nodes/custom-rect'
+import customEllipse from '@/components/nodes/custom-ellipse'
+import customDiamond from '@/components/nodes/custom-diamond'
+import customPolygon from '@/components/nodes/custom-polygon'
+
 import GraphData = LogicFlow.GraphData
 import styles from './index.less'
 
@@ -14,8 +20,10 @@ import OnDragNodeConfig = LogicFlow.OnDragNodeConfig
 
 const config: Partial<LogicFlow.Options> = {
   isSilentMode: false,
-  stopScrollGraph: true,
-  stopZoomGraph: true,
+  // stopScrollGraph: true,
+  // stopZoomGraph: true,
+  // textDraggable: true, // TODO: 节点旋转状态下，拖动文本移动是有问题的！！！
+  edgeTextDraggable: true,
   style: {
     rect: {
       rx: 5,
@@ -81,7 +89,7 @@ const data = {
   nodes: [
     {
       id: 'custom-node-1',
-      rotate: 1.1722738811284763,
+      // rotate: 1.1722738811284763,
       text: {
         x: 600,
         y: 200,
@@ -93,9 +101,7 @@ const data = {
       properties: {
         width: 80,
         height: 120,
-        style: {
-          radius: 20,
-        },
+        radius: 20,
       },
     },
     {
@@ -120,6 +126,46 @@ const data = {
   ],
 }
 
+// const customData = {
+//   nodes: [
+//     {
+//       id: 'custom-circle',
+//       text: 'custom-circle',
+//       type: 'customCircle',
+//       x: 100,
+//       y: 100,
+//     },
+//     {
+//       id: 'custom-rect',
+//       text: 'custom-rect',
+//       type: 'customRect',
+//       x: 300,
+//       y: 100,
+//     },
+//     {
+//       id: 'custom-ellipse',
+//       text: 'custom-ellipse',
+//       type: 'customEllipse',
+//       x: 500,
+//       y: 100,
+//     },
+//     {
+//       id: 'custom-diamond',
+//       text: 'custom-diamond',
+//       type: 'customDiamond',
+//       x: 700,
+//       y: 100,
+//     },
+//     {
+//       id: 'custom-polygon',
+//       text: 'custom-polygon',
+//       type: 'customPolygon',
+//       x: 100,
+//       y: 300,
+//     },
+//   ]
+// }
+
 export default function BasicNode() {
   const lfRef = useRef<LogicFlow>()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -135,6 +181,11 @@ export default function BasicNode() {
       star,
       uml,
       user,
+      customCircle,
+      customRect,
+      customEllipse,
+      customDiamond,
+      customPolygon,
     ]
 
     map(elements, (customElement) => {
@@ -145,6 +196,14 @@ export default function BasicNode() {
     lf.on('history:change', () => {
       const data = lf.getGraphData()
       console.log('history:change', data)
+    })
+
+    lf.on('blank:drop', (data) => {
+      console.log('blank:drop', data)
+    })
+
+    lf.on('edge:click', (data) => {
+      console.log('edge:click', data)
     })
   }
 
@@ -170,7 +229,7 @@ export default function BasicNode() {
         adjustEdgeStartAndEnd: true,
         // adjustEdge: false,
         allowRotate: true,
-        // allowResize: true,
+        allowResize: true,
         edgeTextEdit: true,
         keyboard: {
           enabled: true,
@@ -194,21 +253,24 @@ export default function BasicNode() {
         },
         partial: true,
         background: {
-          color: '#FFFFFF',
+          // color: '#FFFFFF',
+          backgroundImage:
+            "url('https://cdn.jsdelivr.net/gh/Logic-Flow/static@latest/core/rect.png')",
         },
-        grid: true,
-        // grid: {
-        //   size: 1,
-        // },
+        // grid: true,
+        grid: {
+          size: 60,
+        },
         edgeTextDraggable: true,
-        edgeType: 'bezier',
+        edgeType: 'polyline',
         // 全局自定义id
-        // edgeGenerator: (sourceNode, targetNode, currentEdge) => {
-        //   // 起始节点类型 rect 时使用 自定义的边 custom-edge
-        //   if (sourceNode.type === 'rect') return 'bezier'
-        //   if (currentEdge) return currentEdge.type
-        //   return 'polyline'
-        // },
+        edgeGenerator: (sourceNode, targetNode, currentEdge) => {
+          console.log('edgeGenerator currentEdge', currentEdge)
+          // 起始节点类型 rect 时使用 自定义的边 custom-edge
+          if (sourceNode.type === 'rect') return 'bezier'
+          if (currentEdge) return currentEdge.type
+          return 'polyline'
+        },
         idGenerator(type) {
           return type + '_' + Math.random()
         },
@@ -221,6 +283,8 @@ export default function BasicNode() {
       registerEvents(lf)
 
       lf.render(data)
+      // lf.render(customData)
+
       lfRef.current = lf
       ;(window as any).lf = lf
     }
@@ -254,7 +318,29 @@ export default function BasicNode() {
       })
     }
   }
-
+  const handleChangeSize = () => {
+    const lf = lfRef.current
+    if (lf) {
+      if (lf.graphModel.isContainerHeight || lf.graphModel.isContainerWidth) {
+        console.log('resize by width,height')
+        lf.resize(300, 100)
+      } else {
+        console.log('resize by container')
+        lf.resize()
+      }
+      console.log(
+        'current is container',
+        lf.graphModel.isContainerHeight,
+        lf.graphModel.isContainerWidth,
+      )
+      console.log('current option size', lf.options.width, lf.options.height)
+      console.log(
+        'current griphModel size',
+        lf.graphModel.width,
+        lf.graphModel.height,
+      )
+    }
+  }
   const handleChangeEditConfig = () => {
     const isSilentMode = lfRef.current?.options.isSilentMode
     lfRef?.current?.updateEditConfig({
@@ -299,6 +385,12 @@ export default function BasicNode() {
       const refreshData = LogicFlowUtil.refreshGraphId(data)
       console.log('after refresh graphId', data)
       lf.render(refreshData)
+
+      // 测试 getAreaElement API
+      // const lt: LogicFlow.PointTuple = [550, 130];
+      // const rb: LogicFlow.PointTuple = [650, 270];
+      // const areaElements = lf.getAreaElement(lt, rb);
+      // console.log('areaElements', areaElements);
     }
   }
 
@@ -340,6 +432,21 @@ export default function BasicNode() {
     lfRef?.current?.dnd.startDrag(node)
   }
 
+  const changeNodeBorderColor = () => {
+    const lf = lfRef.current
+    if (lf) {
+      const { nodes } = lf.getSelectElements()
+      nodes.forEach(({ id, properties }) => {
+        console.log('properties', properties)
+        lf.setProperties(id, {
+          style: {
+            stroke: 'pink',
+          },
+        })
+      })
+    }
+  }
+
   return (
     <Card title="Graph">
       <Flex wrap="wrap" gap="small">
@@ -376,6 +483,7 @@ export default function BasicNode() {
         <Button key="changeType" type="primary" onClick={handleChangeNodeType}>
           切换节点为五角星
         </Button>
+
         <Button
           key="changeConfig"
           type="primary"
@@ -389,8 +497,19 @@ export default function BasicNode() {
         <Button key="changeEdgeId" type="primary" onClick={handleChangeId}>
           修改边 ID
         </Button>
-        <Button key="changeEdgeId" type="primary" onClick={handleChangeColor}>
+        <Button
+          key="changeEdgeColor"
+          type="primary"
+          onClick={handleChangeColor}
+        >
           修改边 颜色
+        </Button>
+        <Button
+          key="changeNodeBorderColor"
+          type="primary"
+          onClick={changeNodeBorderColor}
+        >
+          修改选中节点边框颜色
         </Button>
       </Flex>
       <Divider orientation="left" orientationMargin="5" plain></Divider>
@@ -473,6 +592,39 @@ export default function BasicNode() {
           onClick={() => lfRef.current?.deleteNode('custom-node-1')}
         >
           删除节点
+        </Button>
+        <Button
+          key="allowResize"
+          type="primary"
+          onClick={() => {
+            if (lfRef.current) {
+              const graphData = lfRef.current?.getEditConfig()
+              const { allowResize } = graphData
+              lfRef.current.updateEditConfig({
+                allowResize: !allowResize,
+              })
+            }
+          }}
+        >
+          切换allowResize
+        </Button>
+        <Button key="resizeGraph" type="primary" onClick={handleChangeSize}>
+          更新画布大小
+        </Button>
+        <Button
+          key="resizeGraph"
+          type="primary"
+          onClick={() => {
+            if (lfRef.current) {
+              const graphData = lfRef.current?.getEditConfig()
+              const { snapGrid } = graphData
+              lfRef.current.updateEditConfig({
+                snapGrid: !snapGrid,
+              })
+            }
+          }}
+        >
+          修改网格对齐状态
         </Button>
       </Flex>
       <Divider orientation="left" orientationMargin="5" plain>

@@ -1,5 +1,7 @@
 import { defineConfig } from 'dumi';
 import { repository, version } from './package.json';
+import CompressionPlugin from 'compression-webpack-plugin';
+import * as process from 'node:process';
 
 export default defineConfig({
   locales: [
@@ -18,7 +20,7 @@ export default defineConfig({
     defaultLanguage: 'zh',
     es5: false,
     footerTheme: 'light',
-    useSpeedInsights: true,
+    useSpeedInsights: false,
     showSearch: true, // 是否显示搜索框
     showLFBanner: true, // Banner是否以 Demo 的形式展示
     showGithubCorner: true, // 是否显示头部的 GitHub icon
@@ -116,6 +118,14 @@ export default defineConfig({
           en: 'Constructor',
         },
         order: 1,
+      },
+      {
+        slug: 'api/type',
+        title: {
+          zh: '类型定义字典',
+          en: 'Type Dictionary',
+        },
+        order: 6,
       },
       {
         slug: 'article/extension',
@@ -399,35 +409,71 @@ export default defineConfig({
       },
     },
   },
-  mfsu: false,
+  // TODO: 开启 mako 打包，目前会导致 Examples 模块不可用，暂时关闭，恢复至 webpack 打包
   // mako: {},
+  // TODO: 开启 SSR 后，umi.server.js 中 process.versions.node.split(".") 会报错， Cannot read properties of undefined (reading 'split')
+  // ssr: {}, // 先关闭，后续测试是否由 LogicFlow 引起报错，目前看是 umi 的原因
+  mfsu: {},
   alias: {
     '@': __dirname,
   },
   links: [],
   scripts: [],
-  headScripts: [
-    // 百度埋点统计
-    `var _hmt = _hmt || [];
-    (function() {
-      var hm = document.createElement("script");
-      hm.src = "https://hm.baidu.com/hm.js?88ab3587a3c0260f5185ce73ec82847d";
-      var s = document.getElementsByTagName("script")[0]; 
-      s.parentNode.insertBefore(hm, s);
-    })();
-  `,
-  ],
+  headScripts: [],
   lessLoader: {
     lessOptions: {
       javascriptEnabled: true,
     },
   },
-  // codeSplitting: { jsStrategy: 'granularChunks' },
-  // chainWebpack: (config) => {
-  //   // 打开 bundle 分析器
-  //   config
-  //     .plugin('webpack-bundle-analyzer')
-  //     .use(require('webpack-bundle-analyzer').BundleAnalyzerPlugin);
-  //   return config;
-  // },
+  extraBabelPlugins: [
+    [
+      'import',
+      {
+        libraryName: 'antd',
+        libraryDirectory: 'es',
+        style: true,
+      },
+      'antd',
+    ],
+    // 下面的 @ant-design/icons 和 lodash-es 需要按需加载，但目前看来不起作用（或者是起作用了，就那么大。需要确认下）
+    [
+      'import',
+      {
+        libraryName: '@ant-design/icons',
+        libraryDirectory: 'es/icons', // 指定图标路径
+        camel2DashComponentName: false, // 禁用驼峰转换
+      },
+      '@ant-design/icons',
+    ],
+    [
+      'import',
+      {
+        libraryName: 'lodash-es',
+        libraryDirectory: '',
+        camel2DashComponentName: false,
+      },
+      'lodash-es',
+    ],
+  ],
+  codeSplitting: { jsStrategy: 'granularChunks' },
+  chainWebpack: (config) => {
+    if (process.env.NODE_ENV === 'production') {
+      // 设置资源 gzip 压缩
+      config.plugin('compression-webpack-plugin').use(CompressionPlugin, [
+        {
+          algorithm: 'gzip',
+          test: /\.js$|\.css$|\.html$/, // 匹配文件名
+          threshold: 10240, // 对超过 10K 的数据压缩
+          deleteOriginalAssets: false, // 不删除源文件
+        },
+      ]);
+
+      // 打开 bundle 分析器
+      // config
+      //   .plugin('webpack-bundle-analyzer')
+      //   .use(require('webpack-bundle-analyzer').BundleAnalyzerPlugin);
+    }
+
+    return config;
+  },
 });

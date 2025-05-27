@@ -1,5 +1,5 @@
 import { assign, cloneDeep, find, isUndefined } from 'lodash-es'
-import { action, computed, isObservable, observable, toJS } from 'mobx'
+import { action, computed, isObservable, observable, set, toJS } from 'mobx'
 import { BaseNodeModel, GraphModel, Model } from '..'
 import LogicFlow from '../../LogicFlow'
 import {
@@ -87,6 +87,7 @@ export class BaseEdgeModel<P extends PropertiesType = PropertiesType>
   // 边特有属性，动画及调整点
   @observable isAnimation = false
   @observable isShowAdjustPoint = false // 是否显示边两端的调整点
+  isDragging?: boolean
   // 引用属性
   graphModel: GraphModel
   @observable zIndex: number = 0
@@ -391,6 +392,8 @@ export class BaseEdgeModel<P extends PropertiesType = PropertiesType>
       properties,
       sourceNodeId: this.sourceNodeId,
       targetNodeId: this.targetNodeId,
+      sourceAnchorId: this.sourceAnchorId,
+      targetAnchorId: this.targetAnchorId,
       startPoint: assign({}, this.startPoint),
       endPoint: assign({}, this.endPoint),
     }
@@ -425,14 +428,8 @@ export class BaseEdgeModel<P extends PropertiesType = PropertiesType>
    * @param key 属性名
    * @param val 属性值
    */
-  @action
-  setProperty(key: string, val: any): void {
-    const preProperties = toJS(this.properties)
-    this.properties = {
-      ...preProperties,
-      [key]: formatData(val),
-    }
-
+  @action setProperty(key: string, val: any): void {
+    set(this.properties, key, formatData(val))
     this.setAttributes()
   }
 
@@ -440,8 +437,7 @@ export class BaseEdgeModel<P extends PropertiesType = PropertiesType>
    * 删除边的属性，会触发重新渲染
    * @param key 属性名
    */
-  @action
-  deleteProperty(key: string): void {
+  @action deleteProperty(key: string): void {
     delete this.properties[key]
     this.setAttributes()
   }
@@ -521,14 +517,17 @@ export class BaseEdgeModel<P extends PropertiesType = PropertiesType>
    * 内部方法，处理初始化文本格式
    */
   @action formatText(data: EdgeConfig) {
+    const {
+      editConfigModel: { edgeTextDraggable, edgeTextEdit },
+    } = this.graphModel
     const { x, y } = this.textPosition
     const { text } = data
     let textConfig: Required<TextConfig> = {
       value: '',
       x,
       y,
-      draggable: false,
-      editable: true,
+      draggable: edgeTextDraggable,
+      editable: edgeTextEdit,
     }
 
     if (text) {

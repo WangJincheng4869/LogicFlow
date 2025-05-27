@@ -1,7 +1,7 @@
-import LogicFlow, { HtmlNodeModel } from '@logicflow/core'
-import { cloneDeep } from 'lodash-es'
+import LogicFlow, { HtmlNodeModel, IHtmlNodeProperties } from '@logicflow/core'
+import { cloneDeep, isNil } from 'lodash-es'
 
-export type CustomProperties = {
+export interface VueCustomProperties extends IHtmlNodeProperties {
   // 形状属性
   width?: number
   height?: number
@@ -16,28 +16,25 @@ export type CustomProperties = {
   textStyle?: LogicFlow.TextNodeTheme
 }
 
-export class VueNodeModel extends HtmlNodeModel {
+export class VueNodeModel<
+  P extends VueCustomProperties = VueCustomProperties,
+> extends HtmlNodeModel<P> {
   setAttributes() {
-    console.log('this.properties', this.properties)
-    const { width, height, radius } = this.properties as CustomProperties
-    if (width) {
+    // DONE: 解决 width、height、radius 为 0 时的问题
+    const { width, height, radius } = this.properties
+    if (!isNil(width)) {
       this.width = width
     }
-    if (height) {
+    if (!isNil(height)) {
       this.height = height
     }
-    if (radius) {
+    if (!isNil(radius)) {
       this.radius = radius
     }
   }
 
   getTextStyle(): LogicFlow.TextNodeTheme {
-    // const { x, y, width, height } = this
-    const {
-      refX = 0,
-      refY = 0,
-      textStyle,
-    } = this.properties as CustomProperties
+    const { refX = 0, refY = 0, textStyle } = this.properties
     const style = super.getTextStyle()
 
     // 通过 transform 重新设置 text 的位置
@@ -53,7 +50,7 @@ export class VueNodeModel extends HtmlNodeModel {
     const {
       style: customNodeStyle,
       // radius = 0, // 第二种方式，设置圆角
-    } = this.properties as CustomProperties
+    } = this.properties
 
     return {
       ...style,

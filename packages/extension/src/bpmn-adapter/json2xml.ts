@@ -43,6 +43,12 @@ const tn = '\t\n'
 // @see issue https://github.com/didi/LogicFlow/issues/718, refactoring of function toXml
 function toXml(obj: string | any[] | Object, name: string, depth: number) {
   const frontSpace = addSpace(depth)
+
+  // 假值除 0、false 外 -> 直接返回空元素 <prop />
+  if (obj !== 0 && obj !== false && !obj) {
+    return tn + frontSpace + `<${name} />`
+  }
+
   let str = ''
   if (name === '#text') {
     return tn + frontSpace + obj
@@ -79,6 +85,11 @@ function toXml(obj: string | any[] | Object, name: string, depth: number) {
   return str
 }
 
+/**
+ * json 转 xml
+ * @param o object
+ * @returns
+ */
 function lfJson2Xml(o: Object) {
   let xmlStr = ''
   for (var m in o) {

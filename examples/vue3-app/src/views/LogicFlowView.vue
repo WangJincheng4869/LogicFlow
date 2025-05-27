@@ -88,6 +88,7 @@ const data = {
 
 const lfRef = ref<LogicFlow | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
+const flowId = ref('')
 const TeleportContainer = getTeleport()
 
 const registerElements = (lf: LogicFlow) => {
@@ -194,6 +195,10 @@ onMounted(() => {
       lf
     )
 
+    lf.on('graph:rendered', ({ graphModel }) => {
+      flowId.value = graphModel.flowId!
+    })
+
     // 注册事件
     registerEvents(lf)
     lf.render(data)
@@ -290,7 +295,7 @@ const changeId = () => {
 const refreshGraph = () => {
   const lf = lfRef?.value
   if (lf) {
-    const data = lf.getGraphData()
+    const data = lf.getGraphRawData()
     console.log('current graph data', data)
     const refreshData = LogicFlowUtil.refreshGraphId(data)
     console.log('after refresh graphId', data)
@@ -319,7 +324,9 @@ const turnAnimationOn = () => {
   if (lfRef?.value) {
     const { edges } = lfRef?.value.getGraphData() as LogicFlow.GraphConfigData
     forEach(edges, (edge) => {
-      lfRef?.value?.openEdgeAnimation(edge.id)
+      if (edge.id) {
+        lfRef?.value?.openEdgeAnimation(edge.id)
+      }
     })
   }
 }
@@ -328,7 +335,9 @@ const turnAnimationOff = () => {
   if (lfRef?.value) {
     const { edges } = lfRef?.value.getGraphData() as LogicFlow.GraphConfigData
     forEach(edges, (edge) => {
-      lfRef?.value?.closeEdgeAnimation(edge.id)
+      if (edge.id) {
+        lfRef?.value?.closeEdgeAnimation(edge.id)
+      }
     })
   }
 }
@@ -429,7 +438,7 @@ const handleDragText = () => {
     </div>
     <el-divider />
     <div ref="containerRef" id="graph" class="viewport"></div>
-    <TeleportContainer />
+    <TeleportContainer :flow-id="flowId" />
   </el-card>
 </template>
 

@@ -1,4 +1,4 @@
-import { assign, cloneDeep } from 'lodash-es'
+import { get, assign, cloneDeep } from 'lodash-es'
 import { observable, action } from 'mobx'
 import { BaseEdgeModel } from '.'
 import { BaseNodeModel, RectNodeModel, CircleNodeModel, Model } from '..'
@@ -30,11 +30,14 @@ import AnchorConfig = Model.AnchorConfig
 export class PolylineEdgeModel extends BaseEdgeModel {
   modelType = ModelType.POLYLINE_EDGE
   draggingPointList: Point[] = []
-  offset?: number
+  @observable offset?: number
   @observable dbClickPosition?: Point
 
   initEdgeData(data: LogicFlow.EdgeConfig): void {
-    this.offset = 30
+    this.offset = get(data, 'properties.offset', 30)
+    if (data.pointsList) {
+      this.pointsList = data.pointsList
+    }
     super.initEdgeData(data)
   }
 
@@ -315,6 +318,11 @@ export class PolylineEdgeModel extends BaseEdgeModel {
     return list
   }
 
+  updatePath(pointList: Point[]) {
+    this.pointsList = pointList
+    this.points = this.getPath(this.pointsList)
+  }
+
   getData() {
     const data = super.getData()
     const pointsList = this.pointsList.map(({ x, y }) => ({
@@ -326,12 +334,14 @@ export class PolylineEdgeModel extends BaseEdgeModel {
     })
   }
 
+  getPath(points: Point[]): string {
+    return points.map((point) => `${point.x},${point.y}`).join(' ')
+  }
+
   @action
   initPoints() {
     if (this.pointsList.length > 0) {
-      this.points = this.pointsList
-        .map((point) => `${point.x},${point.y}`)
-        .join(' ')
+      this.points = this.getPath(this.pointsList)
     } else {
       this.updatePoints()
     }

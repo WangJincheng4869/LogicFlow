@@ -189,14 +189,13 @@ class Anchor extends Component<IProps, IState> {
     this.sourceRuleResults.clear()
     this.targetRuleResults.clear()
     const { graphModel, nodeModel, anchorData } = this.props
-    if (edgeModel) {
-      graphModel.eventCenter.emit(EventType.ANCHOR_DRAGEND, {
-        data: anchorData,
-        e: event!,
-        nodeModel,
-        edgeModel,
-      })
-    }
+
+    graphModel.eventCenter.emit(EventType.ANCHOR_DRAGEND, {
+      data: anchorData,
+      e: event!,
+      nodeModel,
+      edgeModel: edgeModel ?? undefined,
+    })
   }
 
   get customTrajectory() {
@@ -208,12 +207,12 @@ class Anchor extends Component<IProps, IState> {
 
   get relateEdges() {
     const {
-      graphModel: { getAnchorIncomingEdge, getAnchorOutcomingEdge },
+      graphModel: { getAnchorIncomingEdge, getAnchorOutgoingEdge },
       anchorData: { id },
     } = this.props
     return {
       incomingEdgeList: getAnchorIncomingEdge(id),
-      outcomingEdgeList: getAnchorOutcomingEdge(id),
+      outgoingEdgeList: getAnchorOutgoingEdge(id),
     }
   }
 
@@ -362,15 +361,26 @@ class Anchor extends Component<IProps, IState> {
 
   render() {
     const { startX, startY, endX, endY } = this.state
-    const {
-      anchorData: { edgeAddable },
-      edgeStyle,
-    } = this.props
+    const { anchorData, edgeStyle, nodeModel, graphModel } = this.props
+    const { edgeAddable } = anchorData
     return (
       // className="lf-anchor" 作为下载时，需要将锚点删除的依据，不要修改类名
       <g className="lf-anchor">
         <g
+          onClick={(ev) => {
+            ev.stopPropagation()
+            graphModel.eventCenter.emit(EventType.ANCHOR_CLICK, {
+              data: anchorData,
+              e: ev!,
+              nodeModel,
+            })
+          }}
           onMouseDown={(ev) => {
+            graphModel.eventCenter.emit(EventType.ANCHOR_MOUSEDOWN, {
+              data: anchorData,
+              e: ev!,
+              nodeModel,
+            })
             if (edgeAddable !== false) {
               this.dragHandler.handleMouseDown(ev)
             }

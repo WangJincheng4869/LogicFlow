@@ -278,10 +278,10 @@ export class GroupNodeModel extends RectResizeModel {
     )
   }
 
-  isAllowMoveTo({ x1, y1, x2, y2 }) {
+  isAllowMoveTo({ minX, minY, maxX, maxY }) {
     return {
-      x: x1 >= this.x - this.width / 2 && x2 <= this.x + this.width / 2,
-      y: y1 >= this.y - this.height / 2 && y2 <= this.y + this.height / 2,
+      x: minX >= this.x - this.width / 2 && maxX <= this.x + this.width / 2,
+      y: minY >= this.y - this.height / 2 && maxY <= this.y + this.height / 2,
     }
   }
 
@@ -321,7 +321,6 @@ export class GroupNodeModel extends RectResizeModel {
   getData() {
     const data = super.getData()
     data.children = []
-    console.log('this.children', this.children)
     this.children.forEach((childId) => {
       const model = this.graphModel.getNodeModelById(childId)
       if (model && !model.virtual) {

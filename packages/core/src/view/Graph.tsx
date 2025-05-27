@@ -38,13 +38,30 @@ type ContainerStyle = {
 
 @observer
 class Graph extends Component<IGraphProps> {
-  private resizeFunction: any = () => throttle(this.handleResize, 200)
-  handleResize = () => {
-    this.props.graphModel.resize()
+  private handleResize = () => {
+    const { graphModel, options } = this.props
+    const { width, height, isContainerWidth, isContainerHeight } = graphModel
+    let resizeWidth: number | undefined = width
+    let resizeHeight: number | undefined = height
+    let needUpdate = false
+    if (isContainerWidth) {
+      resizeWidth = undefined
+      needUpdate = true
+    }
+    if (isContainerHeight) {
+      resizeHeight = undefined
+      needUpdate = true
+    }
+    if (needUpdate) {
+      graphModel.resize(resizeWidth, resizeHeight)
+    }
+    options.width = width
+    options.height = height
   }
+  private throttleResize = throttle(this.handleResize, 200)
 
   componentDidMount() {
-    window.addEventListener('resize', this.resizeFunction)
+    window.addEventListener('resize', this.throttleResize)
   }
 
   componentDidUpdate() {
@@ -53,7 +70,7 @@ class Graph extends Component<IGraphProps> {
   }
 
   componentWillUnmount() {
-    window.removeEventListener('resize', this.resizeFunction)
+    window.removeEventListener('resize', this.throttleResize)
   }
 
   getComponent(
@@ -87,11 +104,10 @@ class Graph extends Component<IGraphProps> {
     if (options.height) {
       style.height = `${graphModel.height}px`
     }
-    const grid = options.grid && Grid.getGridOptions(options.grid)
-    const { fakeNode, editConfigModel } = graphModel
+    const { fakeNode, editConfigModel, background } = graphModel
     const { adjustEdge } = editConfigModel
     return (
-      <div className="lf-graph" flow-id={graphModel.flowId}>
+      <div className="lf-graph" flow-id={graphModel.flowId} style={style}>
         {/* 元素层 */}
         <CanvasOverlay graphModel={graphModel} dnd={dnd}>
           <g className="lf-base">
@@ -113,11 +129,10 @@ class Graph extends Component<IGraphProps> {
         </ModificationOverlay>
         {/* 工具层：插件 */}
         <ToolOverlay graphModel={graphModel} tool={tool} />
-        {options.background && (
-          <BackgroundOverlay background={options.background} />
-        )}
+        {/* 画布背景 */}
+        {background && <BackgroundOverlay background={background} />}
         {/* 画布网格 */}
-        {grid && <Grid {...grid} graphModel={graphModel} />}
+        <Grid graphModel={graphModel} />
       </div>
     )
   }

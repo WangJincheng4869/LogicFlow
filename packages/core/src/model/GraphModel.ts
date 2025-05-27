@@ -1,4 +1,12 @@
-import { find, forEach, map } from 'lodash-es'
+import {
+  find,
+  forEach,
+  map,
+  merge,
+  isBoolean,
+  debounce,
+  isNil,
+} from 'lodash-es'
 import { action, computed, observable } from 'mobx'
 import {
   BaseEdgeModel,
@@ -36,16 +44,13 @@ import {
   updateTheme,
 } from '../util'
 import EventEmitter from '../event/eventEmitter'
+import { Grid } from '../view/overlay'
 import Position = LogicFlow.Position
 import PointTuple = LogicFlow.PointTuple
 import GraphData = LogicFlow.GraphData
 import NodeConfig = LogicFlow.NodeConfig
 import BaseNodeModelCtor = LogicFlow.BaseNodeModelCtor
 import BaseEdgeModelCtor = LogicFlow.BaseEdgeModelCtor
-
-export interface Constructable<T> {
-  new (...args: any): T
-}
 
 export class GraphModel {
   /**
@@ -58,7 +63,9 @@ export class GraphModel {
   @observable height: number // 画布高度
 
   // 流程图主题配置
-  theme: LogicFlow.Theme
+  @observable theme: LogicFlow.Theme
+  // 网格配置
+  @observable grid: Grid.GridOptions
   // 事件中心
   readonly eventCenter: EventEmitter
   // 维护所有节点和边类型对应的 model
@@ -76,16 +83,37 @@ export class GraphModel {
   // 节点间连线、连线变更时的边的生成规则
   edgeGenerator: LFOptions.Definition['edgeGenerator']
 
+  // Remind：用于记录当前画布上所有节点和边的 model 的 Map
+  // 现在的处理方式，用 this.nodes.map 生成的方式，如果在 new Model 的过程中依赖于其它节点的 model，会出现找不到的情况
+  // eg: new DynamicGroupModel 时，需要获取当前 children 的 model，根据 groupModel 的 isCollapsed 状态更新子节点的 visible
+  nodeModelMap: Map<string, BaseNodeModel> = new Map()
+  edgeModelMap: Map<string, BaseEdgeModel> = new Map()
+  elementsModelMap: Map<string, BaseNodeModel | BaseEdgeModel> = new Map()
+
   /**
    * 节点移动规则判断
-   * 在节点移动的时候，会出发此数组中的所有规则判断
+   * 在节点移动的时候，会触发此数组中的所有规则判断
    */
-
   nodeMoveRules: Model.NodeMoveRule[] = []
+  /**
+   * 节点resize规则判断
+   * 在节点resize的时候，会触发此数组中的所有规则判断
+   */
+  nodeResizeRules: Model.NodeResizeRule[] = []
+
   /**
    * 获取自定义连线轨迹
    */
   customTrajectory: LFOptions.Definition['customTrajectory']
+
+  /**
+   * 判断是否使用的是容器的宽度
+   */
+  isContainerWidth: boolean
+  /**
+   * 判断是否使用的是容器的高度
+   */
+  isContainerHeight: boolean
 
   // 在图上操作创建边时，默认使用的边类型.
   @observable edgeType: string
@@ -116,6 +144,8 @@ export class GraphModel {
   // 用户自定义属性
   [propName: string]: any
 
+  private waitCleanEffects: (() => void)[] = []
+
   constructor(options: LFOptions.Common) {
     const {
       container,
@@ -130,16 +160,42 @@ export class GraphModel {
     this.rootEl = container
     this.partial = !!partial
     this.background = background
-    if (typeof grid === 'object') {
+    if (typeof grid === 'object' && options.snapGrid) {
+      // 开启网格对齐时才根据网格尺寸设置步长
+      // TODO：需要让用户设置成 0 吗？后面可以讨论一下
       this.gridSize = grid.size || 1 // 默认 gridSize 设置为 1
     }
     this.theme = setupTheme(options.style)
+    this.grid = Grid.getGridOptions(grid ?? false)
     this.edgeType = options.edgeType || 'polyline'
     this.animation = setupAnimation(animation)
     this.overlapMode = options.overlapMode || OverlapMode.DEFAULT
 
-    this.width = options.width || this.rootEl.getBoundingClientRect().width
-    this.height = options.height || this.rootEl.getBoundingClientRect().height
+    this.width = options.width ?? this.rootEl.getBoundingClientRect().width
+    this.isContainerWidth = isNil(options.width)
+    this.height = options.height ?? this.rootEl.getBoundingClientRect().height
+    this.isContainerHeight = isNil(options.height)
+
+    const resizeObserver = new ResizeObserver(
+      debounce(
+        ((entries) => {
+          for (const entry of entries) {
+            if (entry.target === this.rootEl) {
+              this.resize()
+              this.eventCenter.emit('graph:resize', {
+                target: this.rootEl,
+                contentRect: entry.contentRect,
+              })
+            }
+          }
+        }) as ResizeObserverCallback,
+        16,
+      ),
+    )
+    resizeObserver.observe(this.rootEl)
+    this.waitCleanEffects.push(() => {
+      resizeObserver.disconnect()
+    })
 
     this.eventCenter = new EventEmitter()
     this.editConfigModel = new EditConfigModel(options)
@@ -161,9 +217,7 @@ export class GraphModel {
     }, {} as GraphModel.NodesMapType)
   }
 
-  @computed get edgesMap(): {
-    [key: string]: { index: number; model: BaseEdgeModel }
-  } {
+  @computed get edgesMap(): GraphModel.EdgesMapType {
     return this.edges.reduce((eMap, model, index) => {
       eMap[model.id] = {
         index,
@@ -191,7 +245,7 @@ export class GraphModel {
 
     // 只显示可见区域的节点和边
     const visibleElements: (BaseNodeModel | BaseEdgeModel)[] = []
-    // TODO: 缓存，优化计算效率 by xutao. So what to do?
+    // TODO: 缓存，优化计算效率 by xutao. So how?
     const visibleLt: PointTuple = [
       -DEFAULT_VISIBLE_SPACE,
       -DEFAULT_VISIBLE_SPACE,
@@ -404,18 +458,25 @@ export class GraphModel {
    * @param { object } graphData 图数据
    */
   graphDataToModel(graphData: Partial<LogicFlow.GraphConfigData>) {
-    if (!this.width || !this.height) {
-      this.resize()
-    }
+    // 宽度必然存在，取消重新计算
+    // if (!this.width || !this.height) {
+    //   this.resize()
+    // }
     if (!graphData) {
-      this.nodes = []
-      this.edges = []
+      this.clearData()
       return
     }
+    this.elementsModelMap.clear()
+    this.nodeModelMap.clear()
+    this.edgeModelMap.clear()
+
     if (graphData.nodes) {
-      this.nodes = map(graphData.nodes, (node: NodeConfig) =>
-        this.getModelAfterSnapToGrid(node),
-      )
+      this.nodes = map(graphData.nodes, (node: NodeConfig) => {
+        const nodeModel = this.getModelAfterSnapToGrid(node)
+        this.elementsModelMap.set(nodeModel.id, nodeModel)
+        this.nodeModelMap.set(nodeModel.id, nodeModel)
+        return nodeModel
+      })
     } else {
       this.nodes = []
     }
@@ -428,7 +489,11 @@ export class GraphModel {
         if (!Model) {
           throw new Error(`找不到${edge.type}对应的边。`)
         }
-        return new Model(edge, this)
+        const edgeModel = new Model(edge, this)
+        this.edgeModelMap.set(edgeModel.id, edgeModel)
+        this.elementsModelMap.set(edgeModel.id, edgeModel)
+
+        return edgeModel
       })
     } else {
       this.edges = []
@@ -735,11 +800,15 @@ export class GraphModel {
    */
   @action
   deleteNode(nodeId: string) {
-    const nodeData = this.nodesMap[nodeId].model.getData()
+    const nodeModel = this.nodesMap[nodeId].model
+    const nodeData = nodeModel.getData()
     this.deleteEdgeBySource(nodeId)
     this.deleteEdgeByTarget(nodeId)
     this.nodes.splice(this.nodesMap[nodeId].index, 1)
-    this.eventCenter.emit(EventType.NODE_DELETE, { data: nodeData })
+    this.eventCenter.emit(EventType.NODE_DELETE, {
+      data: nodeData,
+      model: nodeModel,
+    })
   }
 
   /**
@@ -779,6 +848,7 @@ export class GraphModel {
    */
   getModelAfterSnapToGrid(node: NodeConfig) {
     const Model = this.getModel(node.type) as BaseNodeModelCtor
+    const { snapGrid } = this.editConfigModel
     if (!Model) {
       throw new Error(
         `找不到${node.type}对应的节点，请确认是否已注册此类型节点。`,
@@ -787,8 +857,8 @@ export class GraphModel {
     const { x: nodeX, y: nodeY } = node
     // 根据 grid 修正节点的 x, y
     if (nodeX && nodeY) {
-      node.x = snapToGrid(nodeX, this.gridSize)
-      node.y = snapToGrid(nodeY, this.gridSize)
+      node.x = snapToGrid(nodeX, this.gridSize, snapGrid)
+      node.y = snapToGrid(nodeY, this.gridSize, snapGrid)
       if (typeof node.text === 'object' && node.text !== null) {
         // 原来的处理是：node.text.x -= getGridOffset(nodeX, this.gridSize)
         // 由于snapToGrid()使用了Math.round()四舍五入的做法，因此无法判断需要执行
@@ -800,7 +870,11 @@ export class GraphModel {
         node.text.y += node.y - nodeY
       }
     }
-    return new Model(node, this)
+    const nodeModel = new Model(node, this)
+    this.nodeModelMap.set(nodeModel.id, nodeModel)
+    this.elementsModelMap.set(nodeModel.id, nodeModel)
+
+    return nodeModel
   }
 
   /**
@@ -914,6 +988,8 @@ export class GraphModel {
       },
       this,
     )
+    this.edgeModelMap.set(edgeModel.id, edgeModel)
+    this.elementsModelMap.set(edgeModel.id, edgeModel)
 
     const edgeData = edgeModel.getData()
     this.edges.push(edgeModel)
@@ -1121,6 +1197,14 @@ export class GraphModel {
     selectElement?.setSelected(true)
   }
 
+  @action
+  deselectElementById(id: string) {
+    const element = this.getElement(id)
+    if (element) {
+      element.setSelected(false)
+    }
+  }
+
   /**
    * 将所有选中的元素设置为非选中
    */
@@ -1153,8 +1237,10 @@ export class GraphModel {
     // 如果节点之间存在连线，则只移动连线一次。
     const nodeIdMap: Record<string, [number, number]> = nodeIds.reduce(
       (acc, cur) => {
-        const nodeModel = this.nodesMap[cur].model
-        acc[cur] = nodeModel.getMoveDistance(deltaX, deltaY, isIgnoreRule)
+        const nodeModel = this.nodesMap[cur]?.model
+        if (nodeModel) {
+          acc[cur] = nodeModel.getMoveDistance(deltaX, deltaY, isIgnoreRule)
+        }
         return acc
       },
       {},
@@ -1214,6 +1300,12 @@ export class GraphModel {
   addNodeMoveRules(fn: Model.NodeMoveRule) {
     if (!this.nodeMoveRules.includes(fn)) {
       this.nodeMoveRules.push(fn)
+    }
+  }
+
+  addNodeResizeRules(fn: Model.NodeResizeRule) {
+    if (!this.nodeResizeRules.includes(fn)) {
+      this.nodeResizeRules.push(fn)
     }
   }
 
@@ -1337,10 +1429,9 @@ export class GraphModel {
   }
 
   /**
-   * TODO: 命名问题 outcoming -> outgoing or incoming
    * 获取所有以此锚点为起点的边
    */
-  @action getAnchorOutcomingEdge(anchorId?: string) {
+  @action getAnchorOutgoingEdge(anchorId?: string) {
     const edges: BaseEdgeModel[] = []
     this.edges.forEach((edge) => {
       if (edge.sourceAnchorId === anchorId) {
@@ -1385,11 +1476,44 @@ export class GraphModel {
   }
 
   /**
+   * 更新网格配置
+   */
+  updateGridOptions(options: Partial<Grid.GridOptions>) {
+    merge(this.grid, options)
+  }
+
+  /**
+   * 更新网格尺寸
+   */
+  updateGridSize(size: number) {
+    this.gridSize = size
+  }
+
+  /**
+   * 更新背景配置
+   */
+  updateBackgroundOptions(
+    options: boolean | Partial<LFOptions.BackgroundConfig>,
+  ) {
+    if (isBoolean(options) || isBoolean(this.background)) {
+      this.background = options
+    } else {
+      this.background = {
+        ...this.background,
+        ...options,
+      }
+    }
+  }
+
+  /**
    * 重新设置画布的宽高
    */
   @action resize(width?: number, height?: number): void {
-    this.width = width || this.rootEl.getBoundingClientRect().width
-    this.height = height || this.rootEl.getBoundingClientRect().height
+    this.width = width ?? this.rootEl.getBoundingClientRect().width
+    this.isContainerWidth = isNil(width)
+    this.height = height ?? this.rootEl.getBoundingClientRect().height
+    this.isContainerHeight = isNil(height)
+
     if (!this.width || !this.height) {
       console.warn(
         '渲染画布的时候无法获取画布宽高，请确认在container已挂载到DOM。@see https://github.com/didi/LogicFlow/issues/675',
@@ -1403,6 +1527,11 @@ export class GraphModel {
   @action clearData(): void {
     this.nodes = []
     this.edges = []
+
+    // 清除对已清除节点的引用
+    this.edgeModelMap.clear()
+    this.nodeModelMap.clear()
+    this.elementsModelMap.clear()
   }
 
   /**
@@ -1538,6 +1667,19 @@ export class GraphModel {
    */
   @action setPartial(partial: boolean): void {
     this.partial = partial
+  }
+
+  /** 销毁当前实例 */
+  destroy() {
+    try {
+      this.waitCleanEffects.forEach((fn) => {
+        fn()
+      })
+    } catch (err) {
+      console.warn('error on destroy GraphModel', err)
+    }
+    this.waitCleanEffects.length = 0
+    this.eventCenter.destroy()
   }
 }
 

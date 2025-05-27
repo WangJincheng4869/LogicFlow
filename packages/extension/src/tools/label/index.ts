@@ -1,6 +1,19 @@
 import LogicFlow, { createUuid, GraphModel, TextMode } from '@logicflow/core'
-import { cloneDeep, forEach, isArray, isObject, map } from 'lodash-es'
+import {
+  cloneDeep,
+  forEach,
+  isArray,
+  isEmpty,
+  isEqual,
+  isObject,
+  map,
+} from 'lodash-es'
 import LabelOverlay, { LabelConfigType } from './LabelOverlay'
+import {
+  BBoxInfo,
+  calcPointAfterResize,
+  rotatePointAroundCenter,
+} from './utils'
 
 import Position = LogicFlow.Position
 import NodeData = LogicFlow.NodeData
@@ -8,11 +21,6 @@ import EdgeData = LogicFlow.EdgeData
 import Extension = LogicFlow.Extension
 import LabelConfig = LogicFlow.LabelConfig
 import GraphElement = LogicFlow.GraphElement
-import {
-  BBoxInfo,
-  calcPointAfterResize,
-  rotatePointAroundCenter,
-} from './utils'
 
 // 类型定义，如果 isMultiple 为 true 的话，maxCount 为数值且大于 1
 export type ILabelOptions = {
@@ -21,8 +29,6 @@ export type ILabelOptions = {
   labelWidth?: number
   textOverflowMode?: 'ellipsis' | 'wrap' | 'clip' | 'nowrap' | 'default'
 }
-
-import './style.less'
 
 export class Label implements Extension {
   static pluginName = 'label'
@@ -55,7 +61,7 @@ export class Label implements Extension {
     this.addEventListeners()
 
     // TODO: 3. 自定义快捷键，比如 delete，选中 label 时，移除 label
-    // this.rewriteShortcut()
+    this.rewriteShortcut()
 
     // 插件中注册 LabelOverlay 工具，用于 label 的编辑
     lf.tool.registerTool(LabelOverlay.toolName, LabelOverlay)
@@ -116,7 +122,7 @@ export class Label implements Extension {
       // 3. 字符串或者为空的话就是 string 类型，基于 text 的数据合成 LabelConfig 信息（主要复用 text 的 x,y 信息）
       const config: LabelConfig = {
         ...text,
-        content: curLabelConfig || text.value,
+        content: curLabelConfig || text?.value,
         draggable:
           element.BaseType === 'edge' ? edgeTextDraggable : nodeTextDraggable,
       }
@@ -127,9 +133,6 @@ export class Label implements Extension {
     if (element.BaseType === 'edge') {
       // 判断当前 label，是否在 edge 的路径上，如果不在，就重新计算位置
       formatConfig = map(formatConfig, (config) => {
-        const { x, y } = config
-        console.log('x, y --->>>', x, y)
-
         return config
       })
     }
@@ -218,8 +221,12 @@ export class Label implements Extension {
       editable: true,
       vertical: false,
     }
-
-    if (!isMultiple || len >= (curLabelOption?.maxCount ?? maxCount)) {
+    // 全局的isMultiple为false，或全局isMultiple为true但局部isMultiple指明是false，或当前label长度已经达到上线时，不允许添加多个 label
+    if (
+      !isMultiple ||
+      (isMultiple && curLabelOption.isMultiple === false) ||
+      len >= (curLabelOption?.maxCount ?? maxCount)
+    ) {
       return
     }
 
@@ -335,6 +342,15 @@ export class Label implements Extension {
 
       model.setProperty('_label', newLabelConfig)
     })
+    // 监听元素新增事件，元素label格式化
+    eventCenter.on('node:dnd-add,node:add,edge:add', ({ data }) => {
+      const element = graphModel.getElement(data.id)
+      if (element) {
+        this.rewriteInnerMethods(element)
+        const formatedLabel = this.formatConfig(graphModel, data)
+        element.setProperty('_label', formatedLabel)
+      }
+    })
   }
 
   /**
@@ -366,7 +382,6 @@ export class Label implements Extension {
             y: label.y + deltaY,
           }
         })
-        // console.log('Label --->>>', nextLabel)
         element?.setProperty('_label', nextLabel)
       }
     }
@@ -374,7 +389,60 @@ export class Label implements Extension {
     // TODO: others methods ???
   }
 
-  // private rewriteShortcut() {}
+  private rewriteShortcut() {
+    const { keyboard, graphModel } = this.lf
+    const {
+      options: { keyboard: keyboardOptions },
+    } = keyboard
+    keyboard.off(['backspace'])
+    keyboard.on(['backspace'], () => {
+      if (!keyboardOptions?.enabled) return true
+      if (graphModel.textEditElement) return true
+      const elements = graphModel.getSelectElements(true)
+      this.lf.clearSelectElements()
+      const {
+        graphModel: { editConfigModel },
+      } = this.lf
+      elements.edges.forEach((edge) => {
+        const { properties } = edge
+        if (
+          properties &&
+          !isEmpty(properties._label) &&
+          editConfigModel.textMode === TextMode.LABEL
+        ) {
+          const newLabelList = properties._label.filter(
+            (label) => !label.isSelected,
+          )
+          // 如果两个labelList长度不一致，说明有选中的元素，此时backspace做的动作是删除label
+          if (!isEqual(newLabelList.length, properties._label.length)) {
+            const edgeModel = graphModel.getEdgeModelById(edge.id)
+            edgeModel?.setProperty('_label', newLabelList)
+            return
+          }
+        }
+        edge.id && this.lf.deleteEdge(edge.id)
+      })
+      elements.nodes.forEach((node) => {
+        const { properties } = node
+        if (
+          properties &&
+          !isEmpty(properties._label) &&
+          editConfigModel.textMode === TextMode.LABEL
+        ) {
+          const newLabelList = properties._label.filter(
+            (label) => !label.isSelected,
+          )
+          if (!isEqual(newLabelList.length, properties._label.length)) {
+            const nodeModel = graphModel.getNodeModelById(node.id)
+            nodeModel?.setProperty('_label', newLabelList)
+            return
+          }
+        }
+        node.id && this.lf.deleteNode(node.id)
+      })
+      return false
+    })
+  }
 
   /**
    * 更新当前渲染使用的 Text or Label 模式

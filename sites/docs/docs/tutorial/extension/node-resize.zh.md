@@ -11,7 +11,7 @@ tag:  即将废弃
 
 ## 使用
 
-LogicFlow 在 extension 包中提供了`RectResize`、`EllipseResize`、`DiamonResize`、`HtmlResize`这 4
+LogicFlow 在 extension 包中提供了`RectResize`、`EllipseResize`、`DiamondResize`、`HtmlResize`这 4
 种支持缩放的基础节点, 每个节点都有`view`和`model`这两个属性。节点的缩放也是利用 LogicFlow
 的自定义节点机制，使开发者可以继承这 4 种可以缩放的节点，来实现节点的缩放。
 
@@ -124,24 +124,24 @@ export default {
 
 ## 事件
 
-节点缩放后抛出事件`node:resize`，抛出数据包括节点缩放前后的节点位置、节点大小信息， 数据为{oldNodeSize,
-newNodeSize}, 详细字段如下。
+节点缩放后抛出事件`node:resize`，抛出数据包括节点缩放前后的节点位置、节点大小信息， 数据为{preData,
+data}, 详细字段如下。
 
-| 名称        | 类型     | 描述           |
-|:----------|:-------|:-------------|
-| id        | string | 节点 id        |
-| type      | string | 节点类型         |
+| 名称      | 类型   | 描述                     |
+| :-------- | :----- | :----------------------- |
+| id        | string | 节点 id                  |
+| type      | string | 节点类型                 |
 | modelType | string | 节点图形类型，已内部定义 |
-| x         | number | 节点中心 x 轴坐标   |
-| y         | number | 节点中心 y 轴坐标   |
-| rx        | number | x 轴半径(椭圆、菱形) |
-| ry        | number | y 轴半径(椭圆、菱形) |
-| width     | number | 节点宽度(矩形)     |
-| height    | number | 节点高度(矩形)     |
+| x         | number | 节点中心 x 轴坐标        |
+| y         | number | 节点中心 y 轴坐标        |
+| rx        | number | x 轴半径(椭圆、菱形)     |
+| ry        | number | y 轴半径(椭圆、菱形)     |
+| width     | number | 节点宽度(矩形)           |
+| height    | number | 节点高度(矩形)           |
 
 ```tsx | pure
-lf.on("node:resize", ({ oldNodeSize, newNodeSize }) => {
-  console.log(oldNodeSize, newNodeSize);
+lf.on("node:resize", ({ preData, data }) => {
+  console.log(preData, data);
 });
 ```
 

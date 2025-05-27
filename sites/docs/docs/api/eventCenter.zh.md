@@ -11,28 +11,32 @@ table td:first-of-type {
 }
 </style>
 
-LogicFlow 提供了事件系统用于告知开发者当前流程图发生的事件。事件的详细用法见[事件](../tutorial/basic/event.zh.md)。
+LogicFlow
+提供了事件系统用于告知开发者当前流程图发生的事件。事件的详细用法见[事件](../tutorial/basic/event.zh.md)。
 
 ## 节点事件
 
-| 事件名           | 说明                   | 事件对象          |
-| :--------------- | :--------------------- | :---------------- |
-| element:click    | 元素单击               | data, e, position |
-| node:click       | 节点单击               | data, e, position |
-| node:dbclick     | 节点双击               | data, e, position |
-| node:mousedown   | 鼠标按下节点           | data, e           |
-| node:mouseup     | 鼠标抬起节点           | data, e           |
-| node:mousemove   | 鼠标移动节点           | data, e           |
-| node:mouseenter  | 鼠标进入节点           | data, e           |
-| node:mouseleave  | 鼠标离开节点           | data, e           |
-| node:delete      | 节点的删除             | data              |
-| node:add         | 节点的添加             | data              |
-| node:dnd-add     | 外部拖入节点添加时触发 | data              |
-| node:dnd-drag    | 外部拖入节点拖拽中触发 | data              |
-| node:dragstart   | 节点开始拖拽           | data, e           |
-| node:drag        | 节点拖拽               | data, e           |
-| node:drop        | 节点拖拽放开           | data, e           |
-| node:contextmenu | 右键点击节点           | data, e, position |
+| 事件名                                        | 说明                   | 事件对象                                                                                                                    |
+| :-------------------------------------------- | :--------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
+| element:click                                 | 元素单击               | data, e, position                                                                                                           |
+| node:click                                    | 节点单击               | data, e, position                                                                                                           |
+| node:dbclick                                  | 节点双击               | data, e, position                                                                                                           |
+| node:mousedown                                | 鼠标按下节点           | data, e                                                                                                                     |
+| node:mouseup                                  | 鼠标抬起节点           | data, e                                                                                                                     |
+| node:mousemove                                | 鼠标移动节点           | data, e                                                                                                                     |
+| node:mouseenter                               | 鼠标进入节点           | data, e                                                                                                                     |
+| node:mouseleave                               | 鼠标离开节点           | data, e                                                                                                                     |
+| node:delete                                   | 节点的删除             | data                                                                                                                        |
+| node:add                                      | 节点的添加             | data                                                                                                                        |
+| node:dnd-add                                  | 外部拖入节点添加时触发 | data                                                                                                                        |
+| node:dnd-drag                                 | 外部拖入节点拖拽中触发 | data, e                                                                                                                     |
+| node:dragstart                                | 节点开始拖拽           | data, e                                                                                                                     |
+| node:drag                                     | 节点拖拽               | data, e                                                                                                                     |
+| node:drop                                     | 节点拖拽放开           | data, e                                                                                                                     |
+| node:contextmenu                              | 右键点击节点           | data, e, position                                                                                                           |
+| node:resize<Badge>2.0 新增</Badge>            | 调整节点缩放           | preData, data, model, deltaX, deltaY, index                                                                                 |
+| node:resize<Badge>2.0 新增</Badge>            | 调整节点缩放           | e, data, model                                                                                                              |
+| node:properties-change<Badge>2.0 新增</Badge> | 节点自定义属性变化     | id: 当前节点的id<br/>keys: 当前变更字段的key的集合<br/>preProperties: 改动前的properties<br/>properties: 改动后的properties |
 
 事件对象包含如下内容：
 
@@ -166,9 +170,71 @@ History 用来记录画布上的每一次改动，当画布上的元素发生变
 | text:mouseup   | 鼠标在文本区内放开   | e, data                 |
 | text:update    | 更新文本             | data                    |
 
+事件对象包含如下内容：
 
-当Label文本位置、内容出现变更时，文本触发的事件
+| 属性 | 类型       | 值                  |
+| :--- | :--------- | :------------------ |
+| e    | MouseEvent | 原生的鼠标事件对象  |
+| data | Object     | NodeModel/EdgeModel |
 
+## 插件事件
+
+下面是不同插件中触发的事件
+
+### DndPanel
+
+| 事件名                | 说明             | 事件对象 |
+| :-------------------- | :--------------- | :------- |
+| dnd:panel-dbclick     | 拖拽面板双击     | e, data  |
+| dnd:panel-click       | 拖拽面板左键单击 | e, data  |
+| dnd:panel-contextmenu | 拖拽面板右键单击 | e, data  |
+
+
+事件对象包含如下内容：
+
+| 属性 | 类型       | 值                  |
+| :--- | :--------- | :------------------ |
+| e    | MouseEvent | 原生的鼠标事件对象  |
+| data | Object     | NodeModel/EdgeModel |
+
+### MiniMap
+
+| 事件名        | 说明             | 事件对象 |
+| :------------ | :--------------- | :------- |
+| miniMap:close | 小地图隐藏时触发 | -        |
+
+### SelectionSelect
+
+| 事件名                  | 说明                                   | 事件对象                                                             |
+| :---------------------- | :------------------------------------- | :------------------------------------------------------------------- |
+| selection:selected-area | 选框范围                               | topLeft: 左上角坐标, bottomRight: 右下角坐标                         |
+| selection:drop          | 鼠标放开后如果存在框选选中的元素时触发 | e                                                                    |
+| selection:selected      | 框选完成时触发                         | elements: 框选元素集合, topLeft: 左上角坐标, bottomRight: 右下角坐标 |
+
+### DynamicGroup/Group
+
+| 事件名            | 说明                             | 事件对象                                      |
+| :---------------- | :------------------------------- | :-------------------------------------------- |
+| group:add-node    | 节点加入到分组中触发             | data: 分组数据, childId: 新假如节点的id       |
+| group:remove-node | 节点从分组中移除触发             | data: 分组数据                                |
+| group:not-allowed | 命中节点不允许加入到分组中时触发 | group: 分组数据, node: 被禁止加入的节点的信息 |
+
+### Highlight
+
+| 事件名               | 说明                             | 事件对象             |
+| :------------------- | :------------------------------- | :------------------- |
+| highlight:single     | 单元素高亮模式下，元素触发高亮   | data                 |
+| highlight:neighbours | 相邻元素高亮模式下，元素触发高亮 | data, relateElements |
+| highlight:path       | 路径元素高亮模式下，元素触发高亮 | data, relateElements |
+
+事件对象包含如下内容：
+
+| 属性           | 类型   | 值                            |
+| :------------- | :----- | :---------------------------- |
+| data           | Object | NodeModel/EdgeModel           |
+| relateElements | Array  | NodeModel/EdgeModel组成的数组 |
+
+### Label
 | 事件名          | 说明                 | 事件对象                |
 | :-------------- | :------------------- | :---------------------- |
 | label:mousedown | 鼠标按下文本         | e, data                 |

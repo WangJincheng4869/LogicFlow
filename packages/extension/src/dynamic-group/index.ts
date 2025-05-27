@@ -45,32 +45,9 @@ export class DynamicGroup {
   constructor({ lf, options }: LogicFlow.IExtensionProps) {
     lf.register(dynamicGroup)
     this.lf = lf
-
-    console.log('options', options)
     assign(this, options)
     // 初始化插件，从监听事件开始及设置规则开始
     this.init()
-  }
-
-  /**
-   * 获取分组内的节点
-   * @param groupModel
-   */
-  getNodesInGroup(groupModel: DynamicGroupNodeModel): string[] {
-    let nodeIds: string[] = []
-    if (groupModel.isGroup) {
-      forEach(Array.from(groupModel.children), (nodeId: string) => {
-        nodeIds.push(nodeId)
-
-        const nodeModel = this.lf.getNodeModelById(nodeId)
-        if (nodeModel?.isGroup) {
-          nodeIds = nodeIds.concat(
-            this.getNodesInGroup(nodeModel as DynamicGroupNodeModel),
-          )
-        }
-      })
-    }
-    return nodeIds
   }
 
   /**
@@ -109,7 +86,9 @@ export class DynamicGroup {
     } else {
       let topZIndexGroup = groups[count - 1]
       for (let i = count - 2; i >= 0; i--) {
-        topZIndexGroup = groups[i]
+        if (groups[i].zIndex > topZIndexGroup.zIndex) {
+          topZIndexGroup = groups[i]
+        }
       }
       return topZIndexGroup as DynamicGroupNodeModel
     }
@@ -199,8 +178,18 @@ export class DynamicGroup {
     this.topGroupZIndex = max
   }
 
-  // 监听 LogicFlow 的相关事件，做对应的处理
-  addNodeToGroup = ({ data: node }: CallbackArgs<'node:add'>) => {
+  onSelectionDrop = () => {
+    const { nodes: selectedNodes } = this.lf.graphModel.getSelectElements()
+    selectedNodes.forEach((node) => {
+      this.addNodeToGroup(node)
+    })
+  }
+
+  onNodeAddOrDrop = ({ data: node }: CallbackArgs<'node:add'>) => {
+    this.addNodeToGroup(node)
+  }
+
+  addNodeToGroup = (node: LogicFlow.NodeData) => {
     // 1. 如果该节点之前已经在 group 中了，则将其从之前的 group 移除
     const preGroupId = this.nodeGroupMap.get(node.id)
 
@@ -247,11 +236,10 @@ export class DynamicGroup {
       const group = this.getGroupByBounds(bounds, node)
       if (group) {
         const isAllowAppendIn = group.isAllowAppendIn(node)
-        console.log('isAllowAppendIn', isAllowAppendIn)
         if (isAllowAppendIn) {
           group.addChild(node.id)
-          this.nodeGroupMap.set(node.id, group.id)
-          group.setAllowAppendChild(true)
+          // 建立节点与 group 的映射关系放在了 group.addChild 触发的事件中，与直接调用 addChild 的行为保持一致
+          group.setAllowAppendChild(false)
         } else {
           // 抛出不允许插入的事件
           this.lf.emit('group:not-allowed', {
@@ -263,8 +251,18 @@ export class DynamicGroup {
     }
   }
 
-  removeNodeFromGroup = ({ data: node }: CallbackArgs<'node:delete'>) => {
-    if (node.isGroup && node.children) {
+  onGroupAddNode = ({
+    data: groupData,
+    childId,
+  }: CallbackArgs<'group:add-node'>) => {
+    this.nodeGroupMap.set(childId, groupData.id)
+  }
+
+  removeNodeFromGroup = ({
+    data: node,
+    model,
+  }: CallbackArgs<'node:delete'>) => {
+    if (model.isGroup && node.children) {
       forEach(
         Array.from((node as DynamicGroupNodeModel).children),
         (childId) => {
@@ -282,7 +280,17 @@ export class DynamicGroup {
     }
   }
 
-  setActiveGroup = ({ data: node }: CallbackArgs<'node:drag'>) => {
+  onSelectionDrag = () => {
+    const { nodes: selectedNodes } = this.lf.graphModel.getSelectElements()
+    selectedNodes.forEach((node) => {
+      this.setActiveGroup(node)
+    })
+  }
+  onNodeDrag = ({ data: node }: CallbackArgs<'node:drag'>) => {
+    this.setActiveGroup(node)
+  }
+
+  setActiveGroup = (node: LogicFlow.NodeData) => {
     const nodeModel = this.lf.getNodeModelById(node.id)
     const bounds = nodeModel?.getBounds()
 
@@ -300,7 +308,6 @@ export class DynamicGroup {
       if (!isAllowAppendIn) return
 
       this.activeGroup = targetGroup
-      console.log('this.activeGroup', this.activeGroup)
       this.activeGroup.setAllowAppendChild(true)
     }
   }
@@ -362,8 +369,73 @@ export class DynamicGroup {
     }
   }
 
+  onNodeMove = ({
+    deltaX,
+    deltaY,
+    data,
+  }: Omit<CallbackArgs<'node:mousemove'>, 'e' | 'position'>) => {
+    const { id, x, y, properties } = data
+    if (!properties) {
+      return
+    }
+    const { width, height } = properties
+    const groupId = this.nodeGroupMap.get(id)
+    if (!groupId) {
+      return
+    }
+    const groupModel = this.lf.getNodeModelById(
+      groupId,
+    ) as DynamicGroupNodeModel
+
+    if (!groupModel || !groupModel.isRestrict || !groupModel.autoResize) {
+      return
+    }
+    // 当父节点isRestrict=true & autoResize=true
+    // 子节点在父节点中移动时，父节点会自动调整大小
+
+    // step1: 计算出当前child的bounds
+    const newX = x + deltaX / 2
+    const newY = y + deltaY / 2
+    const minX = newX - width! / 2
+    const minY = newY - height! / 2
+    const maxX = newX + width! / 2
+    const maxY = newY + height! / 2
+    // step2：比较当前child.bounds与parent.bounds的差异，比如child.minX<parent.minX，那么parent.minX=child.minX
+    let hasChange = false
+    const groupBounds = groupModel.getBounds()
+    const newGroupBounds = Object.assign({}, groupBounds)
+    if (minX < newGroupBounds.minX) {
+      newGroupBounds.minX = minX
+      hasChange = true
+    }
+    if (minY < newGroupBounds.minY) {
+      newGroupBounds.minY = minY
+      hasChange = true
+    }
+    if (maxX > newGroupBounds.maxX) {
+      newGroupBounds.maxX = maxX
+      hasChange = true
+    }
+    if (maxY > newGroupBounds.maxY) {
+      newGroupBounds.maxY = maxY
+      hasChange = true
+    }
+    if (!hasChange) {
+      return
+    }
+    // step3: 根据当前parent.bounds去计算出最新的x、y、width、height
+    const newGroupX =
+      newGroupBounds.minX + (newGroupBounds.maxX - newGroupBounds.minX) / 2
+    const newGroupY =
+      newGroupBounds.minY + (newGroupBounds.maxY - newGroupBounds.minY) / 2
+    const newGroupWidth = newGroupBounds.maxX - newGroupBounds.minX
+    const newGroupHeight = newGroupBounds.maxY - newGroupBounds.minY
+    groupModel.moveTo(newGroupX, newGroupY)
+    groupModel.width = newGroupWidth
+    groupModel.height = newGroupHeight
+  }
+
   onGraphRendered = ({ data }: CallbackArgs<'graph:rendered'>) => {
-    console.log('data', data)
     forEach(data.nodes, (node) => {
       if (node.children) {
         forEach(node.children, (childId) => {
@@ -375,6 +447,17 @@ export class DynamicGroup {
     // TODO: 确认一下下面方法的必要性及合理性
     // 初始化 nodes 时进行 this.topGroupZIndex 的校准更新
     this.calibrateTopGroupZIndex(data.nodes)
+  }
+
+  removeChildrenInGroupNodeData<
+    T extends LogicFlow.NodeData | LogicFlow.NodeConfig,
+  >(nodeData: T) {
+    const newNodeData = cloneDeep(nodeData)
+    delete newNodeData.children
+    if (newNodeData.properties?.children) {
+      delete newNodeData.properties.children
+    }
+    return newNodeData
   }
 
   /**
@@ -397,10 +480,14 @@ export class DynamicGroup {
     forEach(Array.from(children), (childId: string) => {
       const childNode = this.lf.getNodeModelById(childId)
       if (childNode) {
+        const childNodeChildren = childNode.children
         const childNodeData = childNode.getData()
         const eventType = EventType.NODE_GROUP_COPY || 'node:group-copy-add'
 
-        const newNodeConfig = transformNodeData(childNodeData, distance)
+        const newNodeConfig = transformNodeData(
+          this.removeChildrenInGroupNodeData(childNodeData),
+          distance,
+        )
         const tempChildNode = this.lf.addNode(newNodeConfig, eventType)
         curGroup.addChild(tempChildNode.id)
 
@@ -412,10 +499,10 @@ export class DynamicGroup {
           ...[...tempChildNode.incoming.edges, ...tempChildNode.outgoing.edges],
         )
 
-        if (children instanceof Set) {
+        if (childNodeChildren instanceof Set) {
           const { childNodes, edgesData } = this.initGroupChildNodes(
             nodeIdMap,
-            children,
+            childNodeChildren,
             tempChildNode as DynamicGroupNodeModel,
             distance,
           )
@@ -425,9 +512,6 @@ export class DynamicGroup {
         }
       }
     })
-
-    // TODO: 确认，递归的方式，是否将所有嵌套的边数据都有返回
-    console.log('allRelatedEdges -->>', allRelatedEdges)
 
     // 1. 判断每一条边的开始节点、目标节点是否在 Group 中
     const edgesInnerGroup = filter(allRelatedEdges, (edge) => {
@@ -475,6 +559,56 @@ export class DynamicGroup {
   }
 
   /**
+   * 检测group:resize后的bounds是否会小于children的bounds
+   * 限制group进行resize时不能小于内部的占地面积
+   * @param groupModel
+   * @param deltaX
+   * @param deltaY
+   * @param newWidth
+   * @param newHeight
+   */
+  checkGroupBoundsWithChildren(
+    groupModel: DynamicGroupNodeModel,
+    deltaX: number,
+    deltaY: number,
+    newWidth: number,
+    newHeight: number,
+  ) {
+    if (groupModel.children) {
+      const { children, x, y } = groupModel
+      // 根据deltaX和deltaY计算出当前model的bounds
+      const newX = x + deltaX / 2
+      const newY = y + deltaY / 2
+      const groupMinX = newX - newWidth / 2
+      const groupMinY = newY - newHeight / 2
+      const groupMaxX = newX + newWidth / 2
+      const groupMaxY = newY + newHeight / 2
+
+      const childrenArray = Array.from(children)
+      for (let i = 0; i < childrenArray.length; i++) {
+        const childId = childrenArray[i]
+        const child = this.lf.getNodeModelById(childId)
+        if (!child) {
+          continue
+        }
+        const childBounds = child.getBounds()
+        const { minX, minY, maxX, maxY } = childBounds
+        // parent:resize后的bounds不能小于child:bounds，否则阻止其resize
+        const canResize =
+          groupMinX <= minX &&
+          groupMinY <= minY &&
+          groupMaxX >= maxX &&
+          groupMaxY >= maxY
+        if (!canResize) {
+          return false
+        }
+      }
+    }
+
+    return true
+  }
+
+  /**
    * Group 插件的初始化方法
    * TODO：1. 待讨论，可能之前插件分类是有意义的 components, material, tools
    * 区别是：1. 有些插件就是自定义节点，可能会有初始化方法 init，但不必要有 render （比如 Group）
@@ -494,8 +628,13 @@ export class DynamicGroup {
     graphModel.addNodeMoveRules((model, deltaX, deltaY) => {
       // 判断如果是 group，移动时需要同时移动组内的所有节点
       if (model.isGroup) {
-        const nodeIds = this.getNodesInGroup(model as DynamicGroupNodeModel)
-        graphModel.moveNodes(nodeIds, deltaX, deltaY, true)
+        // https://github.com/didi/LogicFlow/issues/1826
+        // 这里不应该触发移动子节点的逻辑，这里是判断是否可以移动，而不是触发移动逻辑
+        // 而且这里触发移动，会导致resize操作的this.x变动也会触发子item的this.x变动
+        // resize时的deltaX跟正常移动的deltaX是不同的
+
+        // const nodeIds = this.getNodesInGroup(model as DynamicGroupNodeModel)
+        // graphModel.moveNodes(nodeIds, deltaX, deltaY, true)
         return true
       }
 
@@ -505,25 +644,49 @@ export class DynamicGroup {
       ) as DynamicGroupNodeModel
 
       if (groupModel && groupModel.isRestrict) {
-        // 如果移动的节点存在与分组中，且这个分组禁止子节点移出去
-        const bounds = model.getBounds()
-        return isAllowMoveTo(bounds, groupModel)
+        if (groupModel.autoResize) {
+          // 子节点在父节点中移动时，父节点会自动调整大小
+          // 在node:mousemove中进行父节点的调整
+          return true
+        } else {
+          // 如果移动的节点存在于某个分组中，且这个分组禁止子节点移出去
+          const groupBounds = groupModel.getBounds()
+          return isAllowMoveTo(groupBounds, model, deltaX, deltaY)
+        }
       }
 
       return true
     })
-    graphModel.dynamicGroup = this
 
-    lf.on('node:add,node:drop,node:dnd-add', this.addNodeToGroup)
+    // https://github.com/didi/LogicFlow/issues/1442
+    // https://github.com/didi/LogicFlow/issues/937
+    // 添加分组节点resize规则
+    // isRestrict限制模式下，当前model resize时不能小于children的占地面积
+    // 并且在isRestrict限制模式下，transformWidthContainer即使设置为true，也无效
+    graphModel.addNodeResizeRules((model, deltaX, deltaY, width, height) => {
+      if (model.isGroup && model.isRestrict) {
+        return this.checkGroupBoundsWithChildren(
+          model as DynamicGroupNodeModel,
+          deltaX,
+          deltaY,
+          width,
+          height,
+        )
+      }
+      return true
+    })
+
+    graphModel.dynamicGroup = this
+    lf.on('node:add,node:drop,node:dnd-add', this.onNodeAddOrDrop)
+    lf.on('selection:drop', this.onSelectionDrop)
     lf.on('node:delete', this.removeNodeFromGroup)
-    lf.on('node:drag,node:dnd-drag', this.setActiveGroup)
+    lf.on('node:drag,node:dnd-drag', this.onNodeDrag)
+    lf.on('selection:drag', this.onSelectionDrag)
     lf.on('node:click', this.onNodeSelect)
+    lf.on('node:mousemove', this.onNodeMove)
     lf.on('graph:rendered', this.onGraphRendered)
 
-    lf.on('graph:updated', ({ data }) => console.log('data', data))
-
-    lf.on('group:add-node', ({ data }) => console.log('group:add-node', data))
-    // lf.eventCenter.on('node:resize', this.onGroupResize)
+    lf.on('group:add-node', this.onGroupAddNode)
 
     // https://github.com/didi/LogicFlow/issues/1346
     // 重写 addElements() 方法，在 addElements() 原有基础上增加对 group 内部所有 nodes 和 edges 的复制功能
@@ -544,8 +707,9 @@ export class DynamicGroup {
 
       forEach(selectedNodes, (node) => {
         const originId = node.id
-        const { children, ...rest } = node
-        const model = lf.addNode(rest)
+        const children = node.properties?.children ?? node.children
+
+        const model = lf.addNode(this.removeChildrenInGroupNodeData(node))
 
         if (originId) nodeIdMap[originId] = model.id
         elements.nodes.push(model) // 此时为 group 的 nodeModel
@@ -565,8 +729,6 @@ export class DynamicGroup {
       forEach(edgesInnerGroup, (edge) => {
         this.createEdge(edge, nodeIdMap, distance)
       })
-
-      console.log('selectedEdges --->>>', selectedEdges)
       forEach(selectedEdges, (edge) => {
         elements.edges.push(this.createEdge(edge, nodeIdMap, distance))
       })
@@ -583,11 +745,15 @@ export class DynamicGroup {
 
   destroy() {
     // 销毁监听的事件，并移除渲染的 dom 内容
-    this.lf.off('node:add,node:drop,node:dnd-add', this.addNodeToGroup)
+    this.lf.off('node:add,node:drop,node:dnd-add', this.onNodeAddOrDrop)
+    this.lf.off('selection:drop', this.onSelectionDrop)
     this.lf.off('node:delete', this.removeNodeFromGroup)
-    this.lf.off('node:drag,node:dnd-drag', this.setActiveGroup)
+    this.lf.off('node:drag,node:dnd-drag', this.onNodeDrag)
+    this.lf.off('selection:drag', this.onSelectionDrag)
     this.lf.off('node:click', this.onNodeSelect)
+    this.lf.off('node:mousemove', this.onNodeMove)
     this.lf.off('graph:rendered', this.onGraphRendered)
+    this.lf.off('group:add-node', this.onGroupAddNode)
 
     // 还原 lf.addElements 方法？
     // 移除 graphModel 上重写的 addNodeMoveRules 方法？

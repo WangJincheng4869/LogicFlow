@@ -10,6 +10,9 @@ const config: Partial<LogicFlow.Options> = {
   isSilentMode: false,
   stopScrollGraph: true,
   stopZoomGraph: true,
+  keyboard: {
+    enabled: true,
+  },
 }
 
 export default function CustomPolylineEdge() {
@@ -21,7 +24,7 @@ export default function CustomPolylineEdge() {
         ...config,
         container: containerRef.current as HTMLElement,
         grid: {
-          size: 10,
+          size: 20,
         },
       })
 
@@ -306,6 +309,23 @@ export default function CustomPolylineEdge() {
         }}
       >
         开关动画
+      </Button>
+      <Button
+        key="resizeGraph"
+        type="primary"
+        onClick={() => {
+          if (lfRef.current) {
+            const graphData = lfRef.current?.getEditConfig()
+            const { snapGrid } = graphData
+            console.log('snapGrid --->>>', snapGrid)
+            lfRef.current.updateEditConfig({
+              snapGrid: !snapGrid,
+            })
+            console.log('snapGrid after --->>>', lfRef.current)
+          }
+        }}
+      >
+        修改网格对齐状态
       </Button>
       <Select
         placeholder="修改边文本位置"

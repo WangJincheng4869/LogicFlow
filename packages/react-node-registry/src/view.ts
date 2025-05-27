@@ -25,26 +25,28 @@ export class ReactNodeView extends HtmlNode {
     rootEl.appendChild(el)
   }
 
-  confirmUpdate(_rootEl: SVGForeignObjectElement) {
-    // TODO: 如有需要，可以先通过继承的方式，自定义该节点的更新逻辑；我们后续会根据实际需求，丰富该功能
-    console.log('_rootEl', _rootEl)
-  }
+  // confirmUpdate(_rootEl: SVGForeignObjectElement) {
+  //   // TODO: 如有需要，可以先通过继承的方式，自定义该节点的更新逻辑；我们后续会根据实际需求，丰富该功能
+  //   // console.log('_rootEl', _rootEl)
+  // }
 
   protected renderReactComponent(container: HTMLElement) {
-    console.log('render render render ===>>>')
     this.unmountReactComponent()
     const { model, graphModel } = this.props
 
     if (container) {
+      // 基于自定义节点新建 React 元素
       const elem = createElement(Wrapper, {
         node: model,
         graph: graphModel,
       })
 
       if (Portal.isActive()) {
+        // 使用 Portal
         const portal = createPortal(elem, container, model.id) as ReactPortal
         Portal.connect(this.targetId(), portal)
       } else {
+        // 创建 Root 元素
         this.root = createRoot(container)
         this.root.render(elem)
       }

@@ -3,6 +3,7 @@ import LogicFlow from '@logicflow/core'
 import GraphData = LogicFlow.GraphData
 import NodeData = LogicFlow.NodeData
 import EdgeData = LogicFlow.EdgeData
+import Position = LogicFlow.Position
 
 type SetType = 'add' | 'reset'
 
@@ -29,7 +30,8 @@ class Menu {
   private __container?: HTMLElement
   private __menuDOM?: HTMLElement
   private menuTypeMap?: Map<string, MenuItem[]>
-  private __currentData: EdgeData | NodeData | GraphData | null = null
+  private __currentData: EdgeData | NodeData | GraphData | Position | null =
+    null
   static pluginName = 'menu'
 
   constructor({ lf }) {
@@ -209,6 +211,7 @@ class Menu {
       const {
         domOverlayPosition: { x, y },
       } = position
+      this.__currentData = { ...position.canvasOverlayPosition }
       this.showMenu(x, y, menuList)
     })
     this.lf.on('selection:contextmenu', ({ data, position }) => {
@@ -322,11 +325,11 @@ class Menu {
   /**
    * 设置指定类型元素的菜单
    */
-  private setMenuByType(config) {
-    if (!config.type || !config.menu) {
+  setMenuByType({ type, menu }: { type: string; menu: MenuItem[] }) {
+    if (!type || !menu) {
       return
     }
-    this.menuTypeMap?.set(config.type, config.menu)
+    this.menuTypeMap?.set(type, menu)
   }
 
   /**

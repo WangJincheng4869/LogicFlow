@@ -1,5 +1,5 @@
 import { ComponentType, createElement as h, render } from 'preact/compat'
-import { cloneDeep, forEach, indexOf } from 'lodash-es'
+import { cloneDeep, forEach, indexOf, isNil } from 'lodash-es'
 import { observer } from '.'
 import { Options as LFOptions } from './options'
 import * as _Model from './model'
@@ -734,6 +734,14 @@ export class LogicFlow {
   }
 
   /**
+   * 移除选中的元素
+   * @param id 元素ID
+   */
+  deselectElementById(id: string) {
+    this.graphModel.deselectElementById(id)
+  }
+
+  /**
    * 获取选中的元素数据
    * @param isIgnoreCheck 是否包括sourceNode和targetNode没有被选中的边,默认包括。
    * 注意：复制的时候不能包括此类边, 因为复制的时候不允许悬空的边。
@@ -885,12 +893,23 @@ export class LogicFlow {
    */
   updateEditConfig(config: Partial<IEditConfigType>) {
     const { editConfigModel, transformModel } = this.graphModel
+    const currentSnapGrid = editConfigModel.snapGrid
+
     editConfigModel.updateEditConfig(config)
     if (config?.stopMoveGraph !== undefined) {
       transformModel.updateTranslateLimits(config.stopMoveGraph)
     }
+
     // 静默模式切换时，修改快捷键的启用状态
     config?.isSilentMode ? this.keyboard.disable() : this.keyboard.enable(true)
+
+    // 切换网格对齐状态时，修改网格尺寸
+    if (!isNil(config?.snapGrid) && config.snapGrid !== currentSnapGrid) {
+      const {
+        grid: { size = 1 },
+      } = this.graphModel
+      this.graphModel.updateGridSize(config.snapGrid ? size : 1)
+    }
   }
 
   /**
@@ -1044,6 +1063,8 @@ export class LogicFlow {
    */
   clearData() {
     this.graphModel.clearData()
+    // 强制刷新数据, 让 preact 清除对已删除节点的引用
+    this.render({})
   }
 
   /*********************************************************
@@ -1369,6 +1390,22 @@ export class LogicFlow {
       this.components.push(extensionIns.render.bind(extensionIns))
     this.extension[pluginName] = extensionIns
   }
+
+  /** 销毁当前实例 */
+  destroy() {
+    this.clearData()
+    render(null, this.container)
+    this.keyboard.destroy()
+    this.graphModel.destroy()
+    this.tool.destroy()
+    this.history.destroy()
+    for (const extensionName in this.extension) {
+      const extensionInstance = this.extension[extensionName]
+      if ('destroy' in extensionInstance) {
+        extensionInstance.destroy?.()
+      }
+    }
+  }
 }
 
 // Option
@@ -1451,6 +1488,7 @@ export namespace LogicFlow {
   // label数据类型声明
   export type LabelConfig = {
     id?: string // label唯一标识
+    type?: string
     x: number
     y: number
     content?: string // 富文本内容
@@ -1787,7 +1825,7 @@ export namespace LogicFlow {
      * 基础图形线相关主题
      */
     line: EdgeTheme // 直线样式
-    polyline: EdgePolylineTheme // 折现样式
+    polyline: EdgePolylineTheme // 折线样式
     bezier: EdgeBezierTheme // 贝塞尔曲线样式
     anchorLine: AnchorLineTheme // 从锚点拉出的边的样式
 
