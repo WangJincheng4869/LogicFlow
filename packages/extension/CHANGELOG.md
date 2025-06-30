@@ -1,5 +1,27 @@
 # Change Log
 
+## 2.0.21
+
+### Patch Changes
+
+- Updated dependencies
+  - @logicflow/core@2.0.16
+
+## 2.0.20
+
+### Patch Changes
+
+- Updated dependencies
+  - @logicflow/core@2.0.15
+
+## 2.0.19
+
+### Patch Changes
+
+- fix: 主题功能增强 & dynamic-group增加事件回调
+- Updated dependencies
+  - @logicflow/core@2.0.14
+
 ## 2.0.18
 
 ### Patch Changes

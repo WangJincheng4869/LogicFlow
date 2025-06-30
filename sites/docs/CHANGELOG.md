@@ -1,5 +1,32 @@
 # logicflow-docs
 
+## 2.0.23
+
+### Patch Changes
+
+- Updated dependencies
+  - @logicflow/core@2.0.16
+  - @logicflow/extension@2.0.21
+  - @logicflow/react-node-registry@1.0.18
+
+## 2.0.22
+
+### Patch Changes
+
+- Updated dependencies
+  - @logicflow/core@2.0.15
+  - @logicflow/extension@2.0.20
+  - @logicflow/react-node-registry@1.0.17
+
+## 2.0.21
+
+### Patch Changes
+
+- Updated dependencies
+  - @logicflow/core@2.0.14
+  - @logicflow/extension@2.0.19
+  - @logicflow/react-node-registry@1.0.16
+
 ## 2.0.20
 
 ### Patch Changes

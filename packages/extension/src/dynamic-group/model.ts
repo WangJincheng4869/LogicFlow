@@ -134,6 +134,7 @@ export class DynamicGroupNodeModel extends RectNodeModel<IGroupNodeProperties> {
     this.children = children ? new Set(children) : new Set()
     this.zIndex = zIndex ?? DEFAULT_BOTTOM_Z_INDEX
     this.isCollapsed = isCollapsed ?? false
+    this.setProperties({ isCollapsed: isCollapsed ?? false })
 
     const expandWidth = width ?? DEFAULT_GROUP_EXPAND_WIDTH
     const expandHeight = height ?? DEFAULT_GROUP_EXPAND_HEIGHT
@@ -249,8 +250,17 @@ export class DynamicGroupNodeModel extends RectNodeModel<IGroupNodeProperties> {
    * @param collapse {boolean} true -> 折叠；false -> 展开
    */
   toggleCollapse(collapse?: boolean) {
+    const { graphModel } = this
     const nextCollapseState = !!collapse
+    // DONE: 通过 setProperty 设置 isCollapsed 的值 -> 否则无法触发 node:properties-changed 事件
     this.isCollapsed = nextCollapseState
+    this.setProperties({ isCollapsed: nextCollapseState })
+
+    graphModel.eventCenter.emit('dynamicGroup:collapse', {
+      collapse: nextCollapseState,
+      nodeModel: this,
+    })
+
     // step 1
     if (nextCollapseState) {
       this.collapse()

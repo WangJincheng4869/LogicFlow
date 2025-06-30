@@ -36,11 +36,12 @@ export class RectNodeModel<
     super.setAttributes()
 
     const { width, height, radius } = this.properties
+    const { radius: styleRadius } = this.getNodeStyle()
     if (!isNil(width)) this.width = width
     if (!isNil(height)) this.height = height
-
     // 矩形特有
     if (!isNil(radius)) this.radius = radius
+    if (!isNil(styleRadius)) this.radius = styleRadius
   }
 
   getDefaultAnchor() {

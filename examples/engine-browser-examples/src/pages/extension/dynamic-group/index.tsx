@@ -7,7 +7,7 @@ import {
   SelectionSelect,
 } from '@logicflow/extension'
 
-import { Button, Card, Divider, Flex } from 'antd'
+import { Button, Card, Divider, Flex, message } from 'antd'
 import { useEffect, useRef } from 'react'
 // import { customGroup, subProcess } from './nodes'
 import GraphConfigData = LogicFlow.GraphConfigData
@@ -380,6 +380,14 @@ export default function DynamicGroupDemo() {
       }
       lf.render(graphData)
       // lf.setSelectionSelectMode(true)
+
+      lf.on('node:properties-change', (event: unknown) => {
+        console.log('node:properties-change', event)
+      })
+
+      lf.on('dynamicGroup:collapse', ({ collapse, nodeModel }) => {
+        message.info(`分组${nodeModel.id} ${collapse ? '收起' : '展开'}`)
+      })
 
       lfRef.current = lf
     }

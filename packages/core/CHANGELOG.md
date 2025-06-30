@@ -1,5 +1,23 @@
 # Change Log
 
+## 2.0.16
+
+### Patch Changes
+
+- fix: 修正静态方法调用逻辑,解决destroy报错问题
+
+## 2.0.15
+
+### Patch Changes
+
+- fix: 修复边默认展示双向箭头问题
+
+## 2.0.14
+
+### Patch Changes
+
+- fix: 主题功能增强 & dynamic-group增加事件回调
+
 ## 2.0.13
 
 ### Patch Changes

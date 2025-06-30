@@ -14,7 +14,12 @@ import {
 
 import Graph from './view/Graph'
 import * as _View from './view'
-import { formatData } from './util'
+import {
+  formatData,
+  addThemeMode,
+  removeThemeMode,
+  clearThemeMode,
+} from './util'
 
 import { Dnd, snapline } from './view/behavior'
 import Tool from './tool'
@@ -22,6 +27,7 @@ import History from './history'
 import Keyboard, { initDefaultShortcut } from './keyboard'
 import { EventCallback, CallbackArgs, EventArgs } from './event/eventEmitter'
 import { ElementType, EventType, SegmentDirection } from './constant'
+import { Grid } from './view/overlay'
 
 import Extension = LogicFlow.Extension
 import ExtensionConfig = LogicFlow.ExtensionConfig
@@ -829,7 +835,7 @@ export class LogicFlow {
 
   /**
    * 设置元素的自定义属性
-   * @see todo docs link
+   * @see http://logicflow.cn/api/detail#setproperties
    * @param id 元素的id
    * @param properties 自定义属性
    */
@@ -889,7 +895,7 @@ export class LogicFlow {
   /**
    * 更新流程图编辑相关设置
    * @param {object} config 编辑配置
-   * @see todo docs link
+   * @see http://logicflow.cn/api/detail#updateeditconfig
    */
   updateEditConfig(config: Partial<IEditConfigType>) {
     const { editConfigModel, transformModel } = this.graphModel
@@ -914,7 +920,7 @@ export class LogicFlow {
 
   /**
    * 获取流程图当前编辑相关设置
-   * @see todo docs link
+   * @see http://logicflow.cn/api/detail#geteditconfig
    */
   getEditConfig() {
     return this.graphModel.editConfigModel.getConfig()
@@ -928,8 +934,18 @@ export class LogicFlow {
    * @param { object } style 自定义主题样式
    * todo docs link
    */
-  setTheme(style: Partial<LogicFlow.Theme>): void {
-    this.graphModel.setTheme(style)
+  setTheme(
+    style: Partial<LogicFlow.Theme>,
+    themeMode?: 'radius' | 'dark' | 'colorful' | 'default' | string,
+  ): void {
+    this.graphModel.setTheme(style, themeMode)
+  }
+  /**
+   * 获取当前主题样式
+   * @see todo docs link
+   */
+  getTheme(): LogicFlow.Theme {
+    return this.graphModel.getTheme()
   }
 
   private focusByElement(id: string) {
@@ -1333,6 +1349,23 @@ export class LogicFlow {
     })
   }
 
+  /**
+   * 添加主题模式
+   * @param themeMode 主题模式
+   * @param style 主题样式
+   */
+  static addThemeMode(themeMode: string, style: Partial<LogicFlow.Theme>) {
+    addThemeMode(themeMode, style)
+  }
+
+  static removeThemeMode(themeMode: string) {
+    removeThemeMode(themeMode)
+  }
+
+  static clearThemeMode() {
+    clearThemeMode()
+  }
+
   private installPlugins(disabledPlugins: string[] = []) {
     const extensionsAddByUse = Array.from(
       LogicFlow.extensions,
@@ -1399,6 +1432,7 @@ export class LogicFlow {
     this.graphModel.destroy()
     this.tool.destroy()
     this.history.destroy()
+    clearThemeMode()
     for (const extensionName in this.extension) {
       const extensionInstance = this.extension[extensionName]
       if ('destroy' in extensionInstance) {
@@ -1801,6 +1835,10 @@ export namespace LogicFlow {
     refX?: number
     refY?: number
     verticalLength: number
+    endArrowType?: 'solid' | 'hollow' | 'diamond' | 'circle' | 'none' // 结束箭头类型
+    startArrowType?: 'solid' | 'hollow' | 'diamond' | 'circle' | 'none' // 开始箭头类型
+    strokeLinecap?: 'butt' | 'round' | 'square' // 线条的端点样式
+    strokeLinejoin?: 'miter' | 'round' | 'bevel' // 线条的连接样式
   } & CommonTheme
   export type ArrowAttributesType = {
     d: string
@@ -1855,6 +1893,10 @@ export namespace LogicFlow {
     edgeAdjust: CircleTheme
     outline: OutlineTheme // 节点选择状态下外侧的选框样式
     edgeAnimation: EdgeAnimation // 边动画样式
+
+    // 画布背景
+    background?: boolean | Partial<LFOptions.BackgroundConfig>
+    grid?: boolean | Partial<Grid.GridOptions>
   }
 }
 

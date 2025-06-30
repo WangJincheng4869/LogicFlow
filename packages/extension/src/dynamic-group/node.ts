@@ -268,6 +268,7 @@ export class DynamicGroupNode<
         x: sx,
         y: sy,
         onClick: () => {
+          // DONE: 抛出折叠或展开事件 -> 在 toggleCollapse 方法中抛出
           model.toggleCollapse(!model.isCollapsed)
         },
       }),
